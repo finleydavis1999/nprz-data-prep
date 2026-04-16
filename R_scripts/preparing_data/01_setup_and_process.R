@@ -60,6 +60,8 @@ library(arrow)
 library(dplyr)
 library(cbsodataR)
 
+sf_use_s2(FALSE)
+
 # ============================================================
 # SECTION 3: DOWNLOAD DATA
 # ============================================================
@@ -163,7 +165,7 @@ message("    xmin=", round(bb["xmin"]), " xmax=", round(bb["xmax"]),
 # SECTION 5: GRID PROCESSING FUNCTION
 # ============================================================
 
-process_grid <- function(zip_path, resolution_label, boundary_polygon) {
+process_grid <- function(zip_path, resolution_label, boundary_polygon, id_col) {
 
   message("\n--- Processing ", resolution_label, " grid ---")
 
@@ -195,8 +197,14 @@ process_grid <- function(zip_path, resolution_label, boundary_polygon) {
 
   # --- Pass 2: precise polygon clip --------------------------
   # Use st_filter to get cells whose centroid falls within boundary
+  # --- Pass 2: precise polygon clip (strict centroid-within) -
   boundary_polygon_proj <- st_transform(boundary_polygon, st_crs(grid_rough))
-  grid_rijnmond <- st_filter(grid_rough, boundary_polygon_proj)
+  
+  # Use centroid-within rather than polygon-intersects
+  # prevents large border cells bleeding outside Rijnmond
+  grid_cents <- st_centroid(grid_rough)
+  inside     <- st_within(grid_cents, boundary_polygon_proj, sparse = FALSE)[, 1]
+  grid_rijnmond <- grid_rough[inside, ]
 
   message("  After municipality polygon clip: ", nrow(grid_rijnmond), " rows")
 
@@ -222,50 +230,47 @@ process_grid <- function(zip_path, resolution_label, boundary_polygon) {
   # --- Reproject to WGS84 ------------------------------------
   grid_wgs84 <- st_transform(grid_clean, 4326)
 
-  # --- Export GeoParquet ------------------------------------
-  # Extract WKT first, avoiding the . pronoun issue
-  geometry_wkt_col <- st_as_text(st_geometry(grid_wgs84))
-  
-  grid_df <- cbind(
-    st_drop_geometry(grid_wgs84),
-    geometry_wkt = geometry_wkt_col
-  ) |> as.data.frame()
+  # --- Export: geometry GeoJSON (centroid points, ID only) ---
+  grid_cents <- st_centroid(grid_wgs84)
+  geom_only  <- st_sf(
+    setNames(list(grid_cents[[id_col]]), id_col),
+    geometry = st_geometry(grid_cents),
+    crs = 4326
+  )
+  geojson_path <- file.path(export_dir,
+                             paste0("grid_", resolution_label, "_rijnmond.geojson"))
+  st_write(geom_only, geojson_path, driver = "GeoJSON", delete_dsn = TRUE)
+  message("  Exported geometry GeoJSON: ", geojson_path)
 
-  parquet_path <- file.path(export_dir,
-                            paste0("grid_", resolution_label, "_rijnmond.parquet"))
-  write_parquet(grid_df, parquet_path)
-  message("  Exported parquet: ", parquet_path)
-
-  # --- Export RDS ---
-  rds_path <- file.path(processed_dir,
-                        paste0("grid_", resolution_label, "_rijnmond.rds"))
-  saveRDS(grid_wgs84, rds_path)
-  message("  Exported RDS: ", rds_path)
+  # --- Export: stats parquet (all variables, no geometry) ----
+  stats_df   <- st_drop_geometry(grid_wgs84) |> as.data.frame()
+  stats_path <- file.path(export_dir,
+                           paste0("grid_", resolution_label, "_rijnmond_stats.parquet"))
+  write_parquet(stats_df, stats_path)
+  message("  Exported stats parquet: ", stats_path)
 
   list(res = resolution_label, rows = nrow(grid_rijnmond),
-       cols_kept  = ncol(grid_clean) - 1,
+       cols_kept    = ncol(grid_clean) - 1,
        cols_dropped = length(suppressed_cols))
-}
+
 
 # ============================================================
 # SECTION 6: PROCESS BOTH RESOLUTIONS
 # ============================================================
-
-message("\n=== SECTION 6: Process grid resolutions ===")
-
 results <- list(
   process_grid(
     zip_path         = file.path(raw_dir, "grid_100m", "cbs_vk100_2024.zip"),
     resolution_label = "100m",
-    boundary_polygon = rijnmond_boundary
+    boundary_polygon = rijnmond_boundary,
+    id_col           = "crs28992res100m"
   ),
   process_grid(
     zip_path         = file.path(raw_dir, "grid_500m", "cbs_vk500_2024.zip"),
     resolution_label = "500m",
-    boundary_polygon = rijnmond_boundary
+    boundary_polygon = rijnmond_boundary,
+    id_col           = "crs28992res500m"
   )
 )
-
 # ============================================================
 # SECTION 7: SUMMARY
 # ============================================================
@@ -372,26 +377,26 @@ export_admin_scale <- function(stats_df,
 
   message("  Features after join: ", nrow(joined))
 
-  # Export GeoParquet
-  geom_wkt_col <- st_as_text(st_geometry(joined))
-  joined_df <- cbind(
-    st_drop_geometry(joined),
-    geometry_wkt = geom_wkt_col
-  ) |> as.data.frame()
+# --- Export: geometry GeoJSON (ID + simplified polygon only) 
+  geom_only    <- st_sf(
+    setNames(list(joined[[geom_code_col]]), geom_code_col),
+    geometry = st_geometry(joined),
+    crs = 4326
+  )
+  geom_simple  <- st_simplify(geom_only, dTolerance = 0.001,
+                               preserveTopology = TRUE)
+  geom_simple  <- st_make_valid(geom_simple)
+  geojson_path <- file.path(export_dir, paste0(scale_label, "_2024.geojson"))
+  st_write(geom_simple, geojson_path, driver = "GeoJSON", delete_dsn = TRUE)
+  message("  Exported geometry GeoJSON: ", geojson_path)
 
-  parquet_out <- file.path(export_dir,
-                            paste0(scale_label, "_2024.parquet"))
-  write_parquet(joined_df, parquet_out)
-  message("  Exported parquet: ", parquet_out)
-
-  # Export RDS
-  rds_out <- file.path(processed_dir,
-                        paste0(scale_label, "_2024.rds"))
-  saveRDS(joined, rds_out)
-  message("  Exported RDS: ", rds_out)
+  # --- Export: stats parquet (all variables, no geometry) ----
+  stats_df   <- st_drop_geometry(joined) |> as.data.frame()
+  stats_path <- file.path(export_dir, paste0(scale_label, "_2024_stats.parquet"))
+  write_parquet(stats_df, stats_path)
+  message("  Exported stats parquet: ", stats_path)
 
   nrow(joined)
-}
 
 # --- Buurt: filter to Rijnmond municipalities ---------------
 # Buurt code: BU + 4-digit GM number + digits
@@ -507,112 +512,58 @@ pc4_clean <- drop_suppressed(pc4_zh, "PC4")
 
 # --- Reproject and export -----------------------------------
 pc4_wgs84 <- st_transform(pc4_clean, 4326)
+  # Geometry GeoJSON — postcode + simplified polygon only
+  geom_only   <- st_sf(
+    postcode = pc4_wgs84[["postcode"]],
+    geometry = st_geometry(pc4_wgs84),
+    crs = 4326
+  )
+  geom_simple <- st_simplify(geom_only, dTolerance = 0.001,
+                              preserveTopology = TRUE)
+  geom_simple <- st_make_valid(geom_simple)
+  st_write(geom_simple,
+           file.path(export_dir, "pc4_zh_2024.geojson"),
+           driver = "GeoJSON", delete_dsn = TRUE)
+  message("  Exported PC4 geometry GeoJSON")
 
-pc4_wkt <- st_as_text(st_geometry(pc4_wgs84))
-pc4_df  <- cbind(
-  st_drop_geometry(pc4_wgs84),
-  geometry_wkt = pc4_wkt
-) |> as.data.frame()
-
-write_parquet(pc4_df, file.path(export_dir, "pc4_zh_2024.parquet"))
-saveRDS(pc4_wgs84, file.path(processed_dir, "pc4_zh_2024.rds"))
-message("Exported PC4: ", nrow(pc4_zh), " areas")
-message("Note: Attribution required — © CBS, © ESRI Nederland")
+  # Stats parquet — all variables, no geometry
+  stats_df <- st_drop_geometry(pc4_wgs84) |> as.data.frame()
+  write_parquet(stats_df, file.path(export_dir, "pc4_zh_2024_stats.parquet"))
+  message("  Exported PC4 stats parquet")
 
 # ============================================================
-# SECTION 10: GEOMETRY CLEANUP & SPATIAL FILTERING
-# Purpose: Fix duplicate columns, filter invalid rows,
-#          simplify gemeente/wijk geometry, apply spatial
-#          cutoffs per scale. Run after all exports complete.
+# SECTION 10: EXPORT RIJNMOND BOUNDARY
 # ============================================================
 
-message("\n=== SECTION 10: Geometry cleanup & spatial filtering ===")
+message("\n=== SECTION 10: Export Rijnmond boundary ===")
 
-sf_use_s2(FALSE)  # Use GEOS engine — tolerant of imperfect CBS geometries
+sf_use_s2(FALSE)
 
-# --- Helper: clean one parquet file --------------------------
-clean_parquet <- function(filename, 
-                           filter_negative_inwoners = FALSE,
-                           zh_bbox_filter = FALSE,
-                           simplify_tolerance = NULL) {
-  
-  path <- file.path(export_dir, filename)
-  temp <- file.path(export_dir, paste0("TEMP_", filename))
-  
-  df <- arrow::read_parquet(path)
-  message("  ", filename, ": ", nrow(df), " rows | ", ncol(df), " cols | ",
-          round(file.size(path)/1024^2, 2), " MB")
-  
-  # Drop CamelCase_N duplicate columns from geometry+stats join
-  camel_cols <- names(df)[grepl("_\\d+$", names(df))]
-  if (length(camel_cols) > 0) {
-    df <- df[, !names(df) %in% camel_cols]
-    message("    Dropped ", length(camel_cols), " duplicate cols -> ", ncol(df), " remain")
-  }
-  
-  # Filter out CBS suppressed rows (-99997) using aantal_inwoners
-  if (filter_negative_inwoners && "aantal_inwoners" %in% names(df)) {
-    before <- nrow(df)
-    df <- df[!is.na(df$aantal_inwoners) & df$aantal_inwoners > 0, ]
-    message("    Removed ", before - nrow(df), " suppressed rows -> ", nrow(df), " remain")
-  }
-  
-  # Spatial filter to Zuid-Holland bbox (WGS84)
-  if (zh_bbox_filter) {
-    sf_obj <- st_as_sf(df, wkt = "geometry_wkt", crs = 4326)
-    sf_obj <- st_make_valid(sf_obj)
-    pts    <- st_point_on_surface(sf_obj)
-    coords <- st_coordinates(pts)
-    keep   <- coords[,"X"] >= 3.8 & coords[,"X"] <= 5.2 &
-              coords[,"Y"] >= 51.6 & coords[,"Y"] <= 52.4
-    df <- df[keep, ]
-    message("    After ZH filter: ", nrow(df), " rows")
-  }
-  
-  # Simplify geometry — reduces file size for coarser scales
-  if (!is.null(simplify_tolerance)) {
-    sf_obj     <- st_as_sf(df, wkt = "geometry_wkt", crs = 4326)
-    sf_obj     <- st_make_valid(sf_obj)
-    sf_simple  <- st_simplify(sf_obj, dTolerance = simplify_tolerance,
-                               preserveTopology = TRUE)
-    df <- cbind(
-      st_drop_geometry(sf_simple),
-      geometry_wkt = st_as_text(st_geometry(sf_simple))
-    ) |> as.data.frame()
-    message("    After simplify (", simplify_tolerance, "deg): ",
-            round(object.size(df$geometry_wkt)/1024^2, 2), " MB WKT")
-  }
-  
-  # Write to temp then rename (avoids Arrow file lock)
-  arrow::write_parquet(df, temp)
-  rm(df); gc()
-  file.rename(temp, path)
-  
-  message("    Final: ", nrow(arrow::read_parquet(path)), " rows | ",
-          round(file.size(path)/1024^2, 2), " MB")
-}
+boundary_simple <- st_simplify(
+  st_transform(rijnmond_boundary, 4326),
+  dTolerance = 0.0005,
+  preserveTopology = TRUE
+)
 
-# --- Buurt: dedup columns only (already Rijnmond-filtered) ---
-clean_parquet("buurt_2024.parquet",
-              filter_negative_inwoners = TRUE)
+st_write(
+  st_sf(geometry = st_geometry(boundary_simple)),
+  file.path(export_dir, "rijnmond_boundary.geojson"),
+  driver = "GeoJSON",
+  delete_dsn = TRUE
+)
 
-# --- Wijk: dedup + ZH filter + simplify ----------------------
-clean_parquet("wijk_2024.parquet",
-              filter_negative_inwoners = TRUE,
-              zh_bbox_filter           = TRUE,
-              simplify_tolerance       = 0.001)
+message("  Boundary exported: ",
+        round(file.size(file.path(export_dir,
+              "rijnmond_boundary.geojson"))/1024^2, 2), " MB")
 
-# --- Gemeente: dedup + remove -99997 rows + simplify ---------
-clean_parquet("gemeente_2024.parquet",
-              filter_negative_inwoners = TRUE,
-              simplify_tolerance       = 0.002)
+message("\n=== Section 10 complete ===")
 
-# --- PC4: dedup + ZH filter ----------------------------------
-clean_parquet("pc4_zh_2024.parquet",
-              zh_bbox_filter = TRUE)
-
-# --- Grids: no cleanup needed --------------------------------
-message("  Grid files unchanged (no duplicates, already clipped)")
+# Admin polygon files — simplify to reduce file size
+# Grid files use centroids (points) so no simplification needed
+simplify_geojson("buurt_2024.geojson",    tolerance = 0.0005)
+simplify_geojson("wijk_2024.geojson",     tolerance = 0.002)
+simplify_geojson("gemeente_2024.geojson", tolerance = 0.002)
+simplify_geojson("pc4_zh_2024.geojson",  tolerance = 0.001)
 
 message("\n=== Section 10 complete ===")
 
@@ -633,24 +584,5 @@ message("  buurt_2024.parquet          — ", n_buurt,    " features")
 message("  wijk_2024.parquet           — ", n_wijk,     " features")
 message("  gemeente_2024.parquet       — ", n_gemeente, " features")
 message("  pc4_zh_2024.parquet         — ", nrow(pc4_zh), " areas")
-message("\nNext step: copy export/ contents to cbs-map/static/data/")
-message("Then build the SvelteKit scale-switcher.")
-
-
-
-wijk <- arrow::read_parquet(file.path(export_dir, "wijk_2024.parquet"))
-cat("Wijk NAs in first numeric col:", 
-    sum(is.na(wijk[[names(wijk)[3]]]), na.rm = TRUE), "\n")
-cat("Wijk total rows:", nrow(wijk), "\n")
-cat("Wijk columns:", ncol(wijk), "\n")
-
-# Also print column names so we know what variables are available
-cat("Column names:\n")
-print(names(wijk))
-
-
-wijk <- arrow::read_parquet(file.path(export_dir, "wijk_2024.parquet"))
-cat("Wijk NAs in first numeric col:", 
-    sum(is.na(wijk[[names(wijk)[3]]]), na.rm = TRUE), "\n")
-cat("Wijk total rows:", nrow(wijk), "\n")
-cat("Wijk columns:", ncol(wijk), "\n")
+message("\nNext step: copy export/ contents to app-development/static/data/")
+message("Then run npm run dev in app-development/\n")
