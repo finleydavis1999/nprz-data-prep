@@ -12,12 +12,18 @@
 # ============================================================
 
 # --- Root output directory ----------------------------------
-output_dir <- "C:/NPRZ_project/data"
+# Raw/processed data stays local (not committed)
+output_dir    <- "C:/NPRZ_project/data"
 
 # --- Sub-directories ----------------------------------------
 raw_dir       <- file.path(output_dir, "raw")
 processed_dir <- file.path(output_dir, "processed")
-export_dir    <- file.path(output_dir, "export")
+
+# --- Export goes directly into the app's static folder ------
+# This means running the R script automatically updates what the app serves
+# Find repo root regardless of where R is run from
+repo_root  <- here::here()   # requires: install.packages("here")
+export_dir <- file.path(repo_root, "app-development", "static", "data")
 
 # --- Study area definitions ---------------------------------
 # SCALE 1: Rijnmond region — used for 100m², 500m², PC4, Buurt
