@@ -33,15 +33,21 @@ export_admin_scale <- function(joined_sf, id_col, scale_name, export_dir) {
   if (!dir.exists(export_dir)) dir.create(export_dir, recursive = TRUE)
   # GeoJSON — id column + simplified polygon only
   geom_only <- sf::st_sf(
-    setNames(list(joined_sf[[id_col]]), id_col),
-    geometry = sf::st_geometry(joined_sf),
-    crs = 4326
-  )
-  geom_simple <- sf::st_simplify(geom_only, dTolerance = 0.001,
-                                  preserveTopology = TRUE)
-  geom_simple <- sf::st_make_valid(geom_simple)
-  geojson_path <- file.path(export_dir, paste0(scale_name, ".geojson"))
-  sf::st_write(geom_simple, geojson_path, driver = "GeoJSON", delete_dsn = TRUE)
+  setNames(list(joined_sf[[id_col]]), id_col),
+  geometry = sf::st_geometry(joined_sf),
+  crs = 4326
+)
+
+geom_simple <- sf::st_simplify(geom_only, dTolerance = 0.001,
+                                preserveTopology = TRUE)
+geom_simple <- sf::st_make_valid(geom_simple)
+geom_simple$id <- geom_simple[[id_col]] # Add top-level id field so MapLibre promoteId works reliably
+
+geojson_path <- file.path(export_dir, paste0(scale_name, ".geojson"))
+
+sf::st_write(geom_simple, geojson_path, driver = "GeoJSON",
+             layer_options = "ID_FIELD=id", delete_dsn = TRUE)
+
   message(sprintf("[utils] GeoJSON exported: %s", geojson_path))
   # Parquet — all stats columns, no geometry
   stats_df <- sf::st_drop_geometry(joined_sf) |> as.data.frame()

@@ -31,7 +31,10 @@
 # SECTION 1: CONFIG & PATHS
 # ============================================================
 
-# Shared helpers (drop_suppressed, export_admin_scale, validate_flows)
+# Ensure working directory is repo root
+setwd("C:/NPRZ_project")
+
+# Shared helpers
 source("R_scripts/preparing_data/utils.R")
 
 # --- Local data directory (not committed to git) ------------
@@ -234,9 +237,12 @@ process_grid <- function(zip_path, resolution_label, boundary_polygon, id_col) {
     geometry = st_geometry(grid_cents_wgs84),
     crs = 4326
   )
+ geom_only$id <- geom_only[[id_col]] # Add top-level id field so MapLibre promoteId works reliably
+
   geojson_path <- file.path(export_dir,
                              paste0("grid_", resolution_label, "_rijnmond.geojson"))
-  st_write(geom_only, geojson_path, driver = "GeoJSON", delete_dsn = TRUE)
+  st_write(geom_only, geojson_path, driver = "GeoJSON",
+             layer_options = "ID_FIELD=id", delete_dsn = TRUE)
   message("  GeoJSON exported: ", basename(geojson_path))
 
   # Export stats Parquet (all variables, no geometry)
@@ -337,6 +343,7 @@ process_admin_scale <- function(stats_df, geom_sf,
       by = setNames(stats_id_col, geom_id_col)
     ) |>
     st_transform(4326)
+
 
   message("  Features after join: ", nrow(joined))
 

@@ -53,3 +53,8 @@ data/processed/
 data/export/
 # Keep sample data (small, committed for dev testing)
 !data/sample/
+
+data/*.xlsx
+data/*.ini
+directory_structure.txt
+old_setup_and_process.r

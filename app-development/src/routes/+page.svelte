@@ -4,103 +4,43 @@
   import { browser } from '$app/environment';
   import * as duckdb from '@duckdb/duckdb-wasm';
 
-  // ── Dataset configuration ─────────────────────────────────
-  // Each scale has a GeoJSON file (geometry only) and a stats parquet
-  // The id field links them — MapLibre uses it as the feature identifier
+  import {
+    INNER_SCALES, OUTER_SCALES, ALL_SCALES,
+    VARIABLES, EDGE_DATASETS,
+    NORMALISATIONS, DISPLAY_MODES,
+    COLOURS, NO_DATA,
+    varsForScale, findScale,
+  } from '$lib/config';
+  import type { DisplayMode, Normalisation } from '$lib/types';
 
-  const SCALES = {
-    inner: [
-      { key: '100m',  label: '100m grid',  geojson: 'grid_100m_rijnmond.geojson', stats: 'grid_100m_rijnmond_stats.parquet', id: 'crs28992res100m', type: 'point', pointSize: 60 },
-      { key: '500m',  label: '500m grid',  geojson: 'grid_500m_rijnmond.geojson', stats: 'grid_500m_rijnmond_stats.parquet', id: 'crs28992res500m', type: 'point', pointSize: 300 },
-      { key: 'buurt', label: 'Buurt',       geojson: 'buurt_2024.geojson',          stats: 'buurt_2024_stats.parquet',          id: 'buurtcode',       type: 'polygon' },
-    ],
-    outer: [
-      { key: 'pc4',      label: 'PC4',      geojson: 'pc4_zh_2024.geojson',   stats: 'pc4_zh_2024_stats.parquet',   id: 'postcode',    type: 'polygon' },
-      { key: 'wijk',     label: 'Wijk',     geojson: 'wijk_2024.geojson',     stats: 'wijk_2024_stats.parquet',     id: 'wijkcode',    type: 'polygon' },
-      { key: 'gemeente', label: 'Gemeente', geojson: 'gemeente_2024.geojson', stats: 'gemeente_2024_stats.parquet', id: 'gemeentecode', type: 'polygon' },
-    ]
-  };
-
-  const DISPLAY_MODES = [
-  { key: 'both',  label: 'Inner + Outer' },
-  { key: 'inner', label: 'Inner only'    },
-  { key: 'outer', label: 'Outer only'    },
-] as const;
-
-  // ── Variable definitions ──────────────────────────────────
-  // availableAt controls which scale types show this variable
-  // canNormalise flags whether per-km2 / per-1000 make sense
-
-  const VARIABLES = [
-    // Population
-    { key: 'aantal_inwoners',                 label: 'Total population',          group: 'Population', canNormalise: true,  availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'aantal_mannen',                   label: 'Men',                       group: 'Population', canNormalise: true,  availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'aantal_vrouwen',                  label: 'Women',                     group: 'Population', canNormalise: true,  availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'aantal_inwoners_0_tot_15_jaar',   label: 'Age 0–15',                  group: 'Population', canNormalise: true,  availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'aantal_inwoners_15_tot_25_jaar',  label: 'Age 15–25',                 group: 'Population', canNormalise: true,  availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'aantal_inwoners_25_tot_45_jaar',  label: 'Age 25–45',                 group: 'Population', canNormalise: true,  availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'aantal_inwoners_45_tot_65_jaar',  label: 'Age 45–65',                 group: 'Population', canNormalise: true,  availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'aantal_inwoners_65_jaar_en_ouder',label: 'Age 65+',                   group: 'Population', canNormalise: true,  availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    // Origin
-    { key: 'percentage_geb_nederland_herkomst_nederland',          label: '% Dutch origin',             group: 'Origin', canNormalise: false, availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'percentage_geb_nederland_herkomst_overig_europa',      label: '% European (NL-born)',        group: 'Origin', canNormalise: false, availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'percentage_geb_nederland_herkomst_buiten_europa',      label: '% Non-European (NL-born)',    group: 'Origin', canNormalise: false, availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'percentage_geb_buiten_nederland_herkomst_europa',      label: '% European (foreign-born)',   group: 'Origin', canNormalise: false, availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'percentage_geb_buiten_nederland_herkmst_buiten_europa',label: '% Non-European (foreign-born)',group: 'Origin', canNormalise: false, availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    // Households
-    { key: 'aantal_part_huishoudens',                label: 'Total households',          group: 'Households', canNormalise: true,  availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'aantal_eenpersoonshuishoudens',          label: 'Single-person households',  group: 'Households', canNormalise: true,  availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'gemiddelde_huishoudensgrootte',          label: 'Avg household size',        group: 'Households', canNormalise: false, availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    // Housing
-    { key: 'aantal_woningen',                        label: 'Total dwellings',           group: 'Housing', canNormalise: true,  availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'percentage_koopwoningen',                label: '% Owner-occupied',          group: 'Housing', canNormalise: false, availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'percentage_huurwoningen',                label: '% Rental',                  group: 'Housing', canNormalise: false, availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'aantal_huurwoningen_in_bezit_woningcorporaties', label: 'Social housing units', group: 'Housing', canNormalise: true, availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'gemiddelde_woningwaarde',                label: 'Avg property value (WOZ)',  group: 'Housing', canNormalise: false, availableAt: ['buurt','wijk','gemeente','pc4'] },
-    // Income & benefits (admin scales only — not in 100m grid)
-    { key: 'aantal_personen_met_uitkering_onder_aowlft', label: 'Persons on benefits', group: 'Income', canNormalise: true, availableAt: ['100m','500m','buurt','wijk','gemeente','pc4'] },
-    { key: 'gemiddeld_inkomen_per_inwoner',          label: 'Avg income per resident',   group: 'Income', canNormalise: false, availableAt: ['buurt','wijk','gemeente'] },
-    // Area
-    { key: 'oppervlakte_land_in_ha',                 label: 'Land area (ha)',            group: 'Area', canNormalise: false, availableAt: ['buurt','wijk','gemeente','pc4'] },
-  ];
-
-  const NORMALISATIONS = [
-    { key: 'none',     label: 'Raw value' },
-    { key: 'per_km2',  label: 'Per km²' },
-    { key: 'per_1000', label: 'Per 1,000 residents' },
-  ];
-
-  const COLOURS   = ['#f1eef6', '#bdc9e1', '#74a9cf', '#045a8d'];
-  const NO_DATA   = '#d0d0d0';
+  import type { FeatureCollection, Feature } from 'geojson';
 
   // ── App state ─────────────────────────────────────────────
-  type DisplayMode = 'both' | 'inner' | 'outer';
-
   let displayMode   = $state<DisplayMode>('both');
   let innerScaleKey = $state('buurt');
   let outerScaleKey = $state('gemeente');
-  let sharedVar     = $state(true);          // same variable on both layers
+  let sharedVar     = $state(true);
   let innerVarKey   = $state('aantal_inwoners');
   let outerVarKey   = $state('aantal_inwoners');
-  let normalisation = $state('none');
+  let normalisation = $state<Normalisation>('none');
   let loading       = $state(false);
   let statusMsg     = $state('Initialising…');
   let error         = $state<string | null>(null);
   let innerBreaks   = $state<number[]>([]);
   let outerBreaks   = $state<number[]>([]);
+  let showFlows     = $state(false);
+  let flowsLoaded   = $state(false);
+  let flowsLoading  = $state(false);
 
+
+  
   // ── Derived helpers ───────────────────────────────────────
-  const innerScale   = $derived(SCALES.inner.find(s => s.key === innerScaleKey)!);
-  const outerScale   = $derived(SCALES.outer.find(s => s.key === outerScaleKey)!);
-  const innerVar     = $derived(VARIABLES.find(v => v.key === innerVarKey)!);
-  const outerVar     = $derived(VARIABLES.find(v => v.key === outerVarKey)!);
+  const innerScale = $derived(findScale(innerScaleKey)!);
+  const outerScale = $derived(findScale(outerScaleKey)!);
+  const innerVar   = $derived(VARIABLES.find(v => v.key === innerVarKey)!);
+  const outerVar   = $derived(VARIABLES.find(v => v.key === outerVarKey)!);
 
-  // Variables available at a given scale
-  function varsForScale(scaleKey: string) {
-    return VARIABLES.filter(v => v.availableAt.includes(scaleKey));
-  }
-
-  // When inner scale changes, ensure selected variable is available there
+  // When scale changes, ensure selected variable is available there
   $effect(() => {
     const available = varsForScale(innerScaleKey).map(v => v.key);
     if (!available.includes(innerVarKey)) innerVarKey = available[0];
@@ -115,6 +55,9 @@
   $effect(() => {
     if (sharedVar) outerVarKey = innerVarKey;
   });
+  $effect(() => {
+  if (displayMode !== 'both') sharedVar = false;
+});
 
   // ── MapLibre & DuckDB state ───────────────────────────────
   let map: maplibregl.Map | null = null;
@@ -154,126 +97,235 @@
     return `"${col}"`;
   }
 
-  // ── Register a stats parquet file with DuckDB ─────────────
-  async function ensureStats(filename: string) {
-    if (registeredStats.has(filename)) return;
-    const url = new URL(`/data/${filename}`, window.location.origin).href;
-    await db!.registerFileURL(filename, url, duckdb.DuckDBDataProtocol.HTTP, false);
-    registeredStats.add(filename);
+  // ── Get full URL for stats parquet file ──────────────────
+  function getStatsURL(filename: string): string {
+    return new URL(`/data/${filename}`, window.location.origin).href;
   }
 
   // ── Query stats and apply feature state to map ────────────
-  async function applyLayer(
-    scale: typeof SCALES.inner[0],
-    varKey: string,
-    norm: string,
-    layerId: string
-  ): Promise<number[]> {
+async function applyLayer(
+  scaleKey: string,
+  varKey: string,
+  norm: string,
+  sourceId: string
+): Promise<number[]> {
+  const scale = findScale(scaleKey)!;
 
-    await ensureStats(scale.stats);
+  const isFlowVar = varKey === 'total_outflow' || varKey === 'n_destinations';
+  const isBanenVar = ['total_banen_werk', 'total_banen_woon', 'total_inwoners',
+                      'ratio_banen_inwoners', 'ratio_werkenden_inwoners'].includes(varKey);
 
-    // Check columns available in this stats file
+  let rows: any[];
+
+  if (isFlowVar) {
+    const edgeDataset = EDGE_DATASETS.find(e => e.scaleKey === scaleKey);
+    if (!edgeDataset) return [];
+    const flowUrl = getStatsURL(edgeDataset.flowSummary);
+    const result = await conn.query(`
+      SELECT origin_id AS id, "${varKey}" AS value
+      FROM read_parquet('${flowUrl}')
+    `);
+    rows = result.toArray().map((r: any) => r.toJSON());
+
+  } else if (isBanenVar) {
+    const nodesUrl = getStatsURL('nodes_summary_gem.parquet');
+    const result = await conn.query(`
+      SELECT gemeentecode AS id, "${varKey}" AS value
+      FROM read_parquet('${nodesUrl}')
+      WHERE jaar = 2017
+    `);
+    rows = result.toArray().map((r: any) => r.toJSON());
+
+  } else {
+    const statsUrl = getStatsURL(scale.stats);
     const colsResult = await conn.query(
-      `DESCRIBE SELECT * FROM read_parquet('${scale.stats}') LIMIT 0`
+      `DESCRIBE SELECT * FROM read_parquet('${statsUrl}') LIMIT 0`
     );
     const cols = colsResult.toArray().map((r: any) => r.toJSON().column_name as string);
-
     if (!cols.includes(varKey)) {
-      // Variable not available at this scale — clear feature state
       statusMsg = `"${varKey}" not available at ${scale.label} scale`;
       return [];
     }
-
-    const expr   = normSQL(varKey, norm);
+    const expr = normSQL(varKey, norm);
     const result = await conn.query(`
-      SELECT "${scale.id}" as id, ${expr} as value
-      FROM   read_parquet('${scale.stats}')
+      SELECT "${scale.id}" AS id, ${expr} AS value
+      FROM read_parquet('${statsUrl}')
     `);
-
-    const rows   = result.toArray().map((r: any) => r.toJSON());
-    const values = rows.map((r: any) => Number(r.value)).filter((v: number) => isFinite(v) && v > -99990);
-    const breaks = quantileBreaks(values);
-
-    // Apply feature state — this updates colours without reloading geometry
-    for (const row of rows) {
-      const cls = classify(Number(row.value), breaks);
-      map!.setFeatureState(
-        { source: layerId, id: String(row.id) },
-        { value: row.value, cls }
-      );
-    }
-
-    return breaks;
+    rows = result.toArray().map((r: any) => r.toJSON());
   }
+
+  const values = rows.map((r: any) => Number(r.value))
+                     .filter((v: number) => isFinite(v) && v > -99990);
+  const breaks = quantileBreaks(values);
+
+  for (const row of rows) {
+    const cls = classify(Number(row.value), breaks);
+    map!.setFeatureState(
+      { source: sourceId, id: String(row.id) },
+      { value: row.value, cls }
+    );
+  }
+
+  return breaks;
+}
 
   // ── Load both active layers ───────────────────────────────
   async function loadLayers() {
-  if (!mapReady || !dbReady) return;
-  loading  = true;
-  error    = null;
-  statusMsg = 'Loading data…';
+    if (!mapReady || !dbReady) return;
+    loading   = true;
+    error     = null;
+    statusMsg = 'Loading data…';
 
-  try {
-    const tasks: Promise<number[]>[] = [];
+    try {
+      const tasks: Promise<number[]>[] = [];
 
-    if (displayMode === 'inner' || displayMode === 'both') {
-      tasks.push(
-        applyLayer(innerScale, innerVarKey, normalisation, `${innerScaleKey}-source`)
-          .then(b => { innerBreaks = b; return b; })
-      );
+      if (displayMode === 'outer' || displayMode === 'both') {
+  const effectiveOuterVar = (displayMode === 'both' && sharedVar) ? innerVarKey : outerVarKey;
+  tasks.push(
+    applyLayer(outerScaleKey, effectiveOuterVar, normalisation, `${outerScaleKey}-source`)
+      .then(b => { outerBreaks = b; return b; })
+  );
+}
+
+      if (displayMode === 'outer' || displayMode === 'both') {
+        const effectiveOuterVar = sharedVar ? innerVarKey : outerVarKey;
+        tasks.push(
+          applyLayer(outerScaleKey, effectiveOuterVar, normalisation, `${outerScaleKey}-source`)
+            .then(b => { outerBreaks = b; return b; })
+        );
+      }
+
+      await Promise.all(tasks);
+      statusMsg = '';
+    } catch (e) {
+      error = `Error: ${e}`;
     }
 
-    if (displayMode === 'outer' || displayMode === 'both') {
-      const effectiveOuterVar = sharedVar ? innerVarKey : outerVarKey;
-      tasks.push(
-        applyLayer(outerScale, effectiveOuterVar, normalisation, `${outerScaleKey}-source`)
-          .then(b => { outerBreaks = b; return b; })
-      );
-    }
-
-    await Promise.all(tasks);
-    statusMsg = '';
-  } catch (e) {
-    error = `Error: ${e}`;
+    loading = false;
   }
 
-  loading = false;
+  async function loadFlows() {
+  if (!map || !mapReady || !dbReady) return;
+  if (flowsLoading) return;
+  flowsLoading = true;
+ 
+  try {
+    // Load gemeente centroids (pre-computed in R, tiny file)
+    const centroidsUrl = new URL('/data/gemeente_centroids.json', window.location.origin).href;
+    const centroidsRaw = await fetch(centroidsUrl).then(r => r.json());
+    const centroids = new Map<string, [number, number]>(
+      centroidsRaw.map((c: any) => [c.id, [c.lng, c.lat]])
+    );
+ 
+    // Query top 500 flows from DuckDB (prevents rendering thousands of lines)
+    const flowUrl = new URL('/data/flows.parquet', window.location.origin).href;
+    const result  = await conn.query(`
+      SELECT origin_id, destination_id, flow_value
+      FROM read_parquet('${flowUrl}')
+      ORDER BY flow_value DESC
+      LIMIT 500
+    `);
+    const flows = result.toArray().map((r: any) => r.toJSON());
+ 
+    // Build GeoJSON LineString features
+    const features: GeoJSON.Feature[] = [];
+    for (const flow of flows) {
+      const origin = centroids.get(flow.origin_id);
+      const dest   = centroids.get(flow.destination_id);
+      if (!origin || !dest) continue;   // skip if centroid not found
+ 
+      features.push({
+        type: 'Feature',
+        properties: {
+          origin_id:      flow.origin_id,
+          destination_id: flow.destination_id,
+          flow_value:     flow.flow_value,
+        },
+        geometry: {
+          type:        'LineString',
+          coordinates: [origin, dest],
+        },
+      });
+    }
+ 
+    const geojson: GeoJSON.FeatureCollection = {
+      type:     'FeatureCollection',
+      features,
+    };
+     // Add or update the flows source
+    if (map.getSource('flows-source')) {
+      (map.getSource('flows-source') as maplibregl.GeoJSONSource).setData(geojson);
+    } else {
+      map.addSource('flows-source', { type: 'geojson', data: geojson });
+      map.addLayer({
+        id:     'flows-layer',
+        type:   'line',
+        source: 'flows-source',
+        layout: {
+          'line-join': 'round',
+          'line-cap':  'round',
+        },
+        paint: {
+          'line-color':   '#e63946',
+          'line-opacity': 0.5,
+          // Width scales with flow value: thin for small flows, thick for large
+          'line-width': [
+            'interpolate', ['linear'],
+            ['get', 'flow_value'],
+            1000,  0.5,
+            50000, 2,
+            200000, 5,
+          ],
+        },
+      });
+    }
+ 
+    flowsLoaded  = true;
+    flowsLoading = false;
+ 
+  } catch (e) {
+    error        = `Flows error: ${e}`;
+    flowsLoading = false;
+  }
+}
+function toggleFlows() {
+  showFlows = !showFlows;
+  if (showFlows && !flowsLoaded) {
+    loadFlows();
+  } else if (map && map.getLayer('flows-layer')) {
+    map.setLayoutProperty('flows-layer', 'visibility', showFlows ? 'visible' : 'none');
+  }
 }
 
   // ── Initialise MapLibre ───────────────────────────────────
   function initMap(container: HTMLDivElement) {
     map = new maplibregl.Map({
       container,
-      style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+      style:  'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
       center: [4.48, 51.92],
-      zoom: 10,
+      zoom:   10,
     });
 
     map.on('load', async () => {
-      // Add all GeoJSON sources upfront — geometry loads once
-      // promoteId tells MapLibre to use our ID field as the feature identifier
-      // enabling setFeatureState to work
-
-      for (const scale of [...SCALES.inner, ...SCALES.outer]) {
+      // Add all GeoJSON sources upfront
+      for (const scale of ALL_SCALES) {
         const url = new URL(`/data/${scale.geojson}`, window.location.origin).href;
         map!.addSource(`${scale.key}-source`, {
-          type: 'geojson',
-          data: url,
+          type:      'geojson',
+          data:      url,
           promoteId: scale.id,
         });
       }
 
-      // Add Rijnmond boundary source
+      // Rijnmond boundary
       map!.addSource('boundary-source', {
-  type: 'geojson',
-  data: new URL('/data/rotterdam_boundary.geojson', window.location.origin).href,
-});
+        type: 'geojson',
+        data: new URL('/data/rotterdam_boundary.geojson', window.location.origin).href,
+      });
 
-      // ── Inner layers ────────────────────────────────────
-      for (const scale of SCALES.inner) {
+      // ── Inner layers ──────────────────────────────────────
+      for (const scale of INNER_SCALES) {
         if (scale.type === 'point') {
-          // Grid files are points — render as circles
-          // Circle radius in pixels approximates the grid cell size
           map!.addLayer({
             id:     `${scale.key}-fill`,
             type:   'circle',
@@ -290,13 +342,12 @@
                 ['==', ['feature-state', 'cls'], 3],  COLOURS[3],
                 NO_DATA
               ],
-              'circle-opacity': 0.85,
-              'circle-stroke-width': 0.3,
-              'circle-stroke-color': '#ffffff',
-            }
+              'circle-opacity':       0.85,
+              'circle-stroke-width':  0.3,
+              'circle-stroke-color':  '#ffffff',
+            },
           });
         } else {
-          // Buurt — polygon fill
           map!.addLayer({
             id:     `${scale.key}-fill`,
             type:   'fill',
@@ -313,19 +364,20 @@
                 NO_DATA
               ],
               'fill-opacity': 0.85,
-            }
+            },
           });
           map!.addLayer({
-            id: `${scale.key}-outline`, type: 'line',
+            id:     `${scale.key}-outline`,
+            type:   'line',
             source: `${scale.key}-source`,
             layout: { visibility: 'none' },
-            paint: { 'line-color': '#ffffff', 'line-width': 0.4 }
+            paint:  { 'line-color': '#ffffff', 'line-width': 0.4 },
           });
         }
       }
 
-      // ── Outer layers ────────────────────────────────────
-      for (const scale of SCALES.outer) {
+      // ── Outer layers ──────────────────────────────────────
+      for (const scale of OUTER_SCALES) {
         map!.addLayer({
           id:     `${scale.key}-fill`,
           type:   'fill',
@@ -342,25 +394,27 @@
               NO_DATA
             ],
             'fill-opacity': 0.6,
-          }
+          },
         });
         map!.addLayer({
-          id: `${scale.key}-outline`, type: 'line',
+          id:     `${scale.key}-outline`,
+          type:   'line',
           source: `${scale.key}-source`,
           layout: { visibility: 'none' },
-          paint: { 'line-color': '#ffffff', 'line-width': 0.5 }
+          paint:  { 'line-color': '#ffffff', 'line-width': 0.5 },
         });
       }
 
-      // ── Rijnmond boundary line ───────────────────────────
+      // ── Boundary line ─────────────────────────────────────
       map!.addLayer({
-        id: 'boundary-line', type: 'line',
+        id:     'boundary-line',
+        type:   'line',
         source: 'boundary-source',
         paint: {
-          'line-color': '#e63946',
-          'line-width': 2,
+          'line-color':     '#e63946',
+          'line-width':     2,
           'line-dasharray': [4, 2],
-        }
+        },
       });
 
       mapReady = true;
@@ -369,20 +423,20 @@
     });
   }
 
-  // ── Show/hide layers based on display mode and scale ─────
+  // ── Show/hide layers based on display mode ────────────────
   function updateVisibleLayers() {
     if (!map || !mapReady) return;
 
     const showInner = displayMode === 'inner' || displayMode === 'both';
     const showOuter = displayMode === 'outer' || displayMode === 'both';
 
-    for (const scale of SCALES.inner) {
+    for (const scale of INNER_SCALES) {
       const vis = showInner && scale.key === innerScaleKey ? 'visible' : 'none';
       if (map.getLayer(`${scale.key}-fill`))    map.setLayoutProperty(`${scale.key}-fill`,    'visibility', vis);
       if (map.getLayer(`${scale.key}-outline`)) map.setLayoutProperty(`${scale.key}-outline`, 'visibility', vis);
     }
 
-    for (const scale of SCALES.outer) {
+    for (const scale of OUTER_SCALES) {
       const vis = showOuter && scale.key === outerScaleKey ? 'visible' : 'none';
       if (map.getLayer(`${scale.key}-fill`))    map.setLayoutProperty(`${scale.key}-fill`,    'visibility', vis);
       if (map.getLayer(`${scale.key}-outline`)) map.setLayoutProperty(`${scale.key}-outline`, 'visibility', vis);
@@ -391,8 +445,8 @@
 
   // ── Initialise DuckDB ─────────────────────────────────────
   async function initDuckDB() {
-    const bundles  = duckdb.getJsDelivrBundles();
-    const bundle   = await duckdb.selectBundle(bundles);
+    const bundles   = duckdb.getJsDelivrBundles();
+    const bundle    = await duckdb.selectBundle(bundles);
     const workerUrl = URL.createObjectURL(
       new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
     );
@@ -400,7 +454,7 @@
     db = new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(), worker);
     await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
     URL.revokeObjectURL(workerUrl);
-    conn   = await db.connect();
+    conn    = await db.connect();
     dbReady = true;
     if (mapReady) loadLayers();
   }
@@ -421,7 +475,7 @@
 
   // ── Legend helper ─────────────────────────────────────────
   function formatBreak(v: number): string {
-    return v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(1);
+    return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(1);
   }
 </script>
 
@@ -433,7 +487,7 @@
   <div class="panel-title">NPRZ Spatial Explorer</div>
 
   <!-- Display mode -->
-    <div class="control-group">
+  <div class="control-group">
     <span class="group-label">Display</span>
     <div class="btn-row">
       {#each DISPLAY_MODES as mode}
@@ -444,14 +498,13 @@
       {/each}
     </div>
   </div>
- 
 
-  <!-- Inner scale selector -->
+  <!-- Inner scale -->
   {#if displayMode === 'inner' || displayMode === 'both'}
     <div class="control-group">
       <span class="group-label">Inner scale</span>
       <div class="btn-row">
-        {#each SCALES.inner as s}
+        {#each INNER_SCALES as s}
           <button class:active={innerScaleKey === s.key}
                   onclick={() => innerScaleKey = s.key}>
             {s.label}
@@ -461,12 +514,12 @@
     </div>
   {/if}
 
-  <!-- Outer scale selector -->
+  <!-- Outer scale -->
   {#if displayMode === 'outer' || displayMode === 'both'}
     <div class="control-group">
       <span class="group-label">Outer scale</span>
       <div class="btn-row">
-        {#each SCALES.outer as s}
+        {#each OUTER_SCALES as s}
           <button class:active={outerScaleKey === s.key}
                   onclick={() => outerScaleKey = s.key}>
             {s.label}
@@ -476,7 +529,7 @@
     </div>
   {/if}
 
-  <!-- Variable — shared or split -->
+  <!-- Shared variable toggle -->
   {#if displayMode === 'both'}
     <div class="control-group">
       <label class="toggle-row">
@@ -504,7 +557,7 @@
     </div>
   {/if}
 
-  <!-- Outer variable (only if split mode) -->
+  <!-- Outer variable (split mode) -->
   {#if displayMode === 'both' && !sharedVar}
     <div class="control-group">
       <label for="outer-var" class="group-label">Outer variable</label>
@@ -520,7 +573,7 @@
     </div>
   {/if}
 
-  <!-- Outer variable (outer only mode) -->
+  <!-- Outer variable (outer only) -->
   {#if displayMode === 'outer'}
     <div class="control-group">
       <label for="outer-var-only" class="group-label">Variable</label>
@@ -545,11 +598,27 @@
         <button
           class:active={normalisation === n.key}
           class:disabled
-          onclick={() => { if (!disabled) normalisation = n.key; }}
+          onclick={() => { if (!disabled) normalisation = n.key as Normalisation; }}
         >{n.label}</button>
       {/each}
     </div>
   </div>
+
+  <!-- Flows toggle -->
+     {#if outerScaleKey === 'gemeente' && (displayMode === 'outer' || displayMode === 'both')}
+    <div class="control-group">
+      <span class="group-label">Commuting flows</span>
+      <div class="btn-row">
+        <button
+          class:active={showFlows}
+          onclick={toggleFlows}
+          disabled={flowsLoading}
+        >
+          {flowsLoading ? 'Loading…' : showFlows ? 'Hide flows' : 'Show flows'}
+        </button>
+      </div>
+    </div>
+  {/if}
 
   <!-- Status -->
   {#if loading}
@@ -564,7 +633,7 @@
 
 <!-- ── Legend ─────────────────────────────────────────────── -->
 {#if innerBreaks.length || outerBreaks.length}
-  {@const breaks = innerBreaks.length ? innerBreaks : outerBreaks}
+  {@const breaks   = innerBreaks.length ? innerBreaks : outerBreaks}
   {@const varLabel = displayMode === 'outer'
     ? (VARIABLES.find(v => v.key === outerVarKey)?.label ?? '')
     : (VARIABLES.find(v => v.key === innerVarKey)?.label ?? '')}
@@ -591,49 +660,34 @@
 
 <style>
   .map-container {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
-}
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+  }
 
-:global(.maplibregl-map) {
-  pointer-events: all;
-}
+  :global(.maplibregl-map) {
+    pointer-events: all;
+  }
 
-.panel {
-  position: fixed;
-  top: 1rem;
-  left: 1rem;
-  z-index: 1000;
-  pointer-events: all;
-  background: white;
-  padding: 1rem;
-  border-radius: 10px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
-  font-family: sans-serif;
-  font-size: 0.83rem;
-  width: 280px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-}
-
-.legend {
-  position: fixed;
-  bottom: 2rem;
-  left: 1rem;
-  z-index: 1000;
-  pointer-events: all;
-  background: white;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-  font-family: sans-serif;
-  font-size: 0.8rem;
-  min-width: 150px;
-}
+  .panel {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 1000;
+    pointer-events: all;
+    background: white;
+    padding: 1rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+    font-family: sans-serif;
+    font-size: 0.83rem;
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
 
   .panel-title {
     font-weight: 700;
@@ -674,7 +728,7 @@
   }
 
   button:hover:not(.disabled) { background: #f0f4f8; }
-  button.active  { background: #045a8d; color: white; border-color: #045a8d; }
+  button.active   { background: #045a8d; color: white; border-color: #045a8d; }
   button.disabled { opacity: 0.35; cursor: not-allowed; }
 
   select {
@@ -693,14 +747,15 @@
     cursor: pointer;
   }
 
-  .status       { font-size: 0.78rem; color: #888; font-style: italic; }
-  .error        { color: #c00; font-style: normal; }
+  .status { font-size: 0.78rem; color: #888; font-style: italic; }
+  .error  { color: #c00; font-style: normal; }
 
   .legend {
-    position: absolute;
+    position: fixed;
     bottom: 2rem;
     left: 1rem;
-    z-index: 10;
+    z-index: 1000;
+    pointer-events: all;
     background: white;
     padding: 0.75rem 1rem;
     border-radius: 8px;
