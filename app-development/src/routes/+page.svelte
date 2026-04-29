@@ -5,12 +5,12 @@
   import * as duckdb from '@duckdb/duckdb-wasm';
 
   import {
-    INNER_SCALES, OUTER_SCALES, ALL_SCALES,
-    VARIABLES, EDGE_DATASETS,
-    NORMALISATIONS, DISPLAY_MODES,
-    COLOURS, NO_DATA,
-    varsForScale, findScale,
-  } from '$lib/config';
+  INNER_SCALES, OUTER_SCALES, ALL_SCALES,
+  VARIABLES, EDGE_DATASETS,
+  NORMALISATIONS, DISPLAY_MODES,
+  COLOURS, COLOURS_INNER, COLOURS_OUTER, NO_DATA,
+  varsForScale, findScale,
+} from '$lib/config';
   import type { DisplayMode, Normalisation } from '$lib/types';
 
   import type { FeatureCollection, Feature } from 'geojson';
@@ -359,7 +359,49 @@ async function applyLayer(
         data: new URL('/data/rotterdam_boundary.geojson', window.location.origin).href,
       });
       
-      // ── Inner layers ──────────────────────────────────────
+ // ── Outer layers (bottom of stack) ───────────────────
+      for (const scale of OUTER_SCALES) {
+        map!.addLayer({
+          id:     `${scale.key}-fill`,
+          type:   'fill',
+          source: `${scale.key}-source`,
+          layout: { visibility: 'none' },
+          paint: {
+            'fill-color': [
+              'case',
+              ['==', ['feature-state', 'cls'], -1], NO_DATA,
+              ['==', ['feature-state', 'cls'], 0],  COLOURS_OUTER[0],
+              ['==', ['feature-state', 'cls'], 1],  COLOURS_OUTER[1],
+              ['==', ['feature-state', 'cls'], 2],  COLOURS_OUTER[2],
+              ['==', ['feature-state', 'cls'], 3],  COLOURS_OUTER[3],
+              NO_DATA
+            ],
+            'fill-opacity': 0.6,
+          },
+        });
+        map!.addLayer({
+          id:     `${scale.key}-outline`,
+          type:   'line',
+          source: `${scale.key}-source`,
+          layout: { visibility: 'none' },
+          paint:  { 'line-color': '#ffffff', 'line-width': 0.5 },
+        });
+      }
+
+      // ── Inner area mask (above outer, below inner data) ───
+      // Fills the inner boundary with opaque white to hide outer layer beneath
+      map!.addLayer({
+        id:     'inner-mask',
+        type:   'fill',
+        source: 'boundary-source',
+        layout: { visibility: 'none' },
+        paint: {
+          'fill-color':   '#ffffff',
+          'fill-opacity': 1,
+        },
+      });
+
+      // ── Inner layers (top of stack) ───────────────────────
       for (const scale of INNER_SCALES) {
         if (scale.type === 'point') {
           map!.addLayer({
@@ -368,19 +410,26 @@ async function applyLayer(
             source: `${scale.key}-source`,
             layout: { visibility: 'none' },
             paint: {
-              'circle-radius': scale.key === '100m' ? 4 : 12,
+              'circle-radius': [
+                'interpolate', ['linear'], ['zoom'],
+                10, scale.key === '100m' ? 2  : 8,
+                12, scale.key === '100m' ? 4  : 14,
+                14, scale.key === '100m' ? 8  : 24,
+                16, scale.key === '100m' ? 16 : 48,
+              ],
               'circle-color': [
                 'case',
                 ['==', ['feature-state', 'cls'], -1], NO_DATA,
-                ['==', ['feature-state', 'cls'], 0],  COLOURS[0],
-                ['==', ['feature-state', 'cls'], 1],  COLOURS[1],
-                ['==', ['feature-state', 'cls'], 2],  COLOURS[2],
-                ['==', ['feature-state', 'cls'], 3],  COLOURS[3],
+                ['==', ['feature-state', 'cls'], 0],  COLOURS_INNER[0],
+                ['==', ['feature-state', 'cls'], 1],  COLOURS_INNER[1],
+                ['==', ['feature-state', 'cls'], 2],  COLOURS_INNER[2],
+                ['==', ['feature-state', 'cls'], 3],  COLOURS_INNER[3],
                 NO_DATA
               ],
-              'circle-opacity':       0.85,
-              'circle-stroke-width':  0.3,
-              'circle-stroke-color':  '#ffffff',
+              'circle-opacity':         0.85,
+              'circle-stroke-width':    0,
+              'circle-pitch-alignment': 'map',
+              'circle-pitch-scale':     'map',
             },
           });
         } else {
@@ -393,10 +442,10 @@ async function applyLayer(
               'fill-color': [
                 'case',
                 ['==', ['feature-state', 'cls'], -1], NO_DATA,
-                ['==', ['feature-state', 'cls'], 0],  COLOURS[0],
-                ['==', ['feature-state', 'cls'], 1],  COLOURS[1],
-                ['==', ['feature-state', 'cls'], 2],  COLOURS[2],
-                ['==', ['feature-state', 'cls'], 3],  COLOURS[3],
+                ['==', ['feature-state', 'cls'], 0],  COLOURS_INNER[0],
+                ['==', ['feature-state', 'cls'], 1],  COLOURS_INNER[1],
+                ['==', ['feature-state', 'cls'], 2],  COLOURS_INNER[2],
+                ['==', ['feature-state', 'cls'], 3],  COLOURS_INNER[3],
                 NO_DATA
               ],
               'fill-opacity': 0.85,
@@ -412,36 +461,7 @@ async function applyLayer(
         }
       }
 
-      // ── Outer layers ──────────────────────────────────────
-      for (const scale of OUTER_SCALES) {
-        map!.addLayer({
-          id:     `${scale.key}-fill`,
-          type:   'fill',
-          source: `${scale.key}-source`,
-          layout: { visibility: 'none' },
-          paint: {
-            'fill-color': [
-              'case',
-              ['==', ['feature-state', 'cls'], -1], NO_DATA,
-              ['==', ['feature-state', 'cls'], 0],  COLOURS[0],
-              ['==', ['feature-state', 'cls'], 1],  COLOURS[1],
-              ['==', ['feature-state', 'cls'], 2],  COLOURS[2],
-              ['==', ['feature-state', 'cls'], 3],  COLOURS[3],
-              NO_DATA
-            ],
-            'fill-opacity': 0.6,
-          },
-        });
-        map!.addLayer({
-          id:     `${scale.key}-outline`,
-          type:   'line',
-          source: `${scale.key}-source`,
-          layout: { visibility: 'none' },
-          paint:  { 'line-color': '#ffffff', 'line-width': 0.5 },
-        });
-      }
-
-      // ── Boundary line ─────────────────────────────────────
+      // ── Boundary line (always on top) ─────────────────────
       map!.addLayer({
         id:     'boundary-line',
         type:   'line',
@@ -458,26 +478,53 @@ async function applyLayer(
       if (dbReady) loadLayers();
     });
   }
+  // ── Show/hide layers + adjust opacity based on display mode ──
+function updateVisibleLayers() {
+  if (!map || !mapReady) return;
 
-  // ── Show/hide layers based on display mode ────────────────
-  function updateVisibleLayers() {
-    if (!map || !mapReady) return;
+  const showInner = displayMode === 'inner' || displayMode === 'both';
+  const showOuter = displayMode === 'outer' || displayMode === 'both';
+  const bothOn    = displayMode === 'both';
+  const useShared = bothOn && sharedVar;
 
-    const showInner = displayMode === 'inner' || displayMode === 'both';
-    const showOuter = displayMode === 'outer' || displayMode === 'both';
+  for (const scale of INNER_SCALES) {
+    const vis = showInner && scale.key === innerScaleKey ? 'visible' : 'none';
+    if (map.getLayer(`${scale.key}-fill`))
+      map.setLayoutProperty(`${scale.key}-fill`, 'visibility', vis);
+    if (map.getLayer(`${scale.key}-outline`))
+      map.setLayoutProperty(`${scale.key}-outline`, 'visibility', vis);
+  }
 
-    for (const scale of INNER_SCALES) {
-      const vis = showInner && scale.key === innerScaleKey ? 'visible' : 'none';
-      if (map.getLayer(`${scale.key}-fill`))    map.setLayoutProperty(`${scale.key}-fill`,    'visibility', vis);
-      if (map.getLayer(`${scale.key}-outline`)) map.setLayoutProperty(`${scale.key}-outline`, 'visibility', vis);
-    }
+  for (const scale of OUTER_SCALES) {
+    const vis = showOuter && scale.key === outerScaleKey ? 'visible' : 'none';
+    if (map.getLayer(`${scale.key}-fill`))
+      map.setLayoutProperty(`${scale.key}-fill`, 'visibility', vis);
+    if (map.getLayer(`${scale.key}-outline`))
+      map.setLayoutProperty(`${scale.key}-outline`, 'visibility', vis);
 
-    for (const scale of OUTER_SCALES) {
-      const vis = showOuter && scale.key === outerScaleKey ? 'visible' : 'none';
-      if (map.getLayer(`${scale.key}-fill`))    map.setLayoutProperty(`${scale.key}-fill`,    'visibility', vis);
-      if (map.getLayer(`${scale.key}-outline`)) map.setLayoutProperty(`${scale.key}-outline`, 'visibility', vis);
+    if (vis === 'visible') {
+      // Opacity: lower when both shown so inner is dominant
+      map.setPaintProperty(`${scale.key}-fill`, 'fill-opacity', bothOn ? 0.35 : 0.6);
+
+      // Colour: match inner (blue) when shared variable, otherwise orange
+      const colours = useShared ? COLOURS_INNER : COLOURS_OUTER;
+      map.setPaintProperty(`${scale.key}-fill`, 'fill-color', [
+        'case',
+        ['==', ['feature-state', 'cls'], -1], NO_DATA,
+        ['==', ['feature-state', 'cls'], 0],  colours[0],
+        ['==', ['feature-state', 'cls'], 1],  colours[1],
+        ['==', ['feature-state', 'cls'], 2],  colours[2],
+        ['==', ['feature-state', 'cls'], 3],  colours[3],
+        NO_DATA
+      ]);
     }
   }
+
+  // Mask: hide outer layer within inner boundary when both shown
+  if (map.getLayer('inner-mask')) {
+    map.setLayoutProperty('inner-mask', 'visibility', bothOn ? 'visible' : 'none');
+  }
+}
 
   // ── Initialise DuckDB ─────────────────────────────────────
   async function initDuckDB() {
@@ -686,28 +733,43 @@ $effect(() => {
 
 <!-- ── Legend ─────────────────────────────────────────────── -->
 {#if innerBreaks.length || outerBreaks.length}
-  {@const breaks   = innerBreaks.length ? innerBreaks : outerBreaks}
-  {@const varLabel = displayMode === 'outer'
-    ? (VARIABLES.find(v => v.key === outerVarKey)?.label ?? '')
-    : (VARIABLES.find(v => v.key === innerVarKey)?.label ?? '')}
   <div class="legend">
-    <div class="legend-title">{varLabel}</div>
-    <div class="legend-row">
-      <span class="swatch" style="background:{NO_DATA}"></span>
-      No data
-    </div>
-    {#each COLOURS as colour, i}
-      <div class="legend-row">
-        <span class="swatch" style="background:{colour}"></span>
-        {#if i === 0}
-          ≤ {formatBreak(breaks[0] ?? 0)}
-        {:else if i === COLOURS.length - 1}
-          > {formatBreak(breaks[breaks.length - 1] ?? 0)}
-        {:else}
-          ≤ {formatBreak(breaks[i] ?? 0)}
-        {/if}
+    {#if (displayMode === 'inner' || displayMode === 'both') && innerBreaks.length}
+      <div class="legend-title" style="color:#045a8d">
+        {VARIABLES.find(v => v.key === innerVarKey)?.label ?? ''}
       </div>
-    {/each}
+      <div class="legend-row">
+        <span class="swatch" style="background:{NO_DATA}"></span>No data
+      </div>
+      {#each COLOURS_INNER as colour, i}
+        <div class="legend-row">
+          <span class="swatch" style="background:{colour}"></span>
+          {#if i === 0}≤ {formatBreak(innerBreaks[0] ?? 0)}
+          {:else if i === COLOURS_INNER.length - 1}> {formatBreak(innerBreaks[innerBreaks.length - 1] ?? 0)}
+          {:else}≤ {formatBreak(innerBreaks[i] ?? 0)}
+          {/if}
+        </div>
+      {/each}
+    {/if}
+
+    {#if (displayMode === 'outer' || displayMode === 'both') && outerBreaks.length}
+      {#if displayMode === 'both'}<div class="legend-divider"></div>{/if}
+      <div class="legend-title" style="color:#b30000">
+        {VARIABLES.find(v => v.key === (sharedVar ? innerVarKey : outerVarKey))?.label ?? ''}
+      </div>
+      <div class="legend-row">
+        <span class="swatch" style="background:{NO_DATA}"></span>No data
+      </div>
+      {#each COLOURS_OUTER as colour, i}
+        <div class="legend-row">
+          <span class="swatch" style="background:{colour}"></span>
+          {#if i === 0}≤ {formatBreak(outerBreaks[0] ?? 0)}
+          {:else if i === COLOURS_OUTER.length - 1}> {formatBreak(outerBreaks[outerBreaks.length - 1] ?? 0)}
+          {:else}≤ {formatBreak(outerBreaks[i] ?? 0)}
+          {/if}
+        </div>
+      {/each}
+    {/if}
   </div>
 {/if}
 
@@ -717,7 +779,7 @@ $effect(() => {
   inset: 0;
   width: 100vw;
   height: 100vh;
-  pointer-events: all;  /* ← THIS is blocking drag */
+  pointer-events: all;  
 }
 
   .panel {
@@ -828,6 +890,11 @@ $effect(() => {
     align-items: center;
     gap: 0.45rem;
     margin: 0.18rem 0;
+  }
+
+  .legend-divider {
+    border-top: 1px solid #eee;
+    margin: 0.5rem 0;
   }
 
   .swatch {

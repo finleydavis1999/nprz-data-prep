@@ -54,6 +54,9 @@ export const OUTER_SCALES: Scale[] = [
 ];
 
 export const ALL_SCALES: Scale[] = [...INNER_SCALES, ...OUTER_SCALES];
+export const COLOURS_INNER = ['#f1eef6', '#bdc9e1', '#74a9cf', '#045a8d']; // blue
+export const COLOURS_OUTER = ['#fef0d9', '#fdcc8a', '#fc8d59', '#b30000']; // orange-red
+export const COLOURS      = COLOURS_INNER; // default kept for legend
 
 // ── Variables ─────────────────────────────────────────────────────────────────
 
@@ -208,8 +211,7 @@ export const DISPLAY_MODES = [
   { key: 'outer', label: 'Outer only'    },
 ] as const;
 
-export const COLOURS = ['#f1eef6', '#bdc9e1', '#74a9cf', '#045a8d'];
-export const NO_DATA = '#d0d0d0';
+export const NO_DATA = '#646464';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
