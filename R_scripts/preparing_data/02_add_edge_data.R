@@ -116,3 +116,13 @@ message("\n✓ Exported:")
 message("  flows.parquet        — ", nrow(flows), " rows")
 message("  flow_summary.parquet — ", nrow(flow_summary), " rows")
 message("  → ", EXPORT_DIR)
+
+# ── Optional: Correct Rotterdam centroid ───────────────────────────────
+library(jsonlite)
+cents <- fromJSON("C:/NPRZ_project/app-development/static/data/gemeente_centroids.json")
+cents$lng[cents$id == "GM0599"] <- 4.479448
+cents$lat[cents$id == "GM0599"] <- 51.928931
+write_json(cents,
+           "C:/NPRZ_project/app-development/static/data/gemeente_centroids.json",
+           dataframe = "rows")
+message("Rotterdam centroid corrected")

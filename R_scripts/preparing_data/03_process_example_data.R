@@ -861,23 +861,23 @@ write_parquet(migration_pc4_summary,
 message("  Migration PC4: ", nrow(migration_pc4_out), " rows")
 
 # ── SECTION 11: PC4 centroids for flow line rendering ─────────────────────────
-message("\n=== Section 11: PC4 centroids ===")
+# Run just section 11 in R — rebuilds pc4_centroids.json with full middle boundary
+# Make sure pc4_sf_geom is in your environment first:
+# If not: pc4_sf_geom <- st_read("C:/NPRZ_project/app-development/static/data/pc4_zh_2024.geojson", quiet=TRUE)
 
-# Use pc4_inner (centroid-within filter applied above)
-# Centroids for the inner study area PC4 codes only
-pc4_cents_export <- st_centroid(pc4_inner)
-pc4_coords       <- st_coordinates(pc4_cents_export)
+pc4_all_cents  <- st_centroid(pc4_sf_geom)
+pc4_all_coords <- st_coordinates(pc4_all_cents)
 
 pc4_centroids <- data.frame(
-  id  = as.integer(pc4_inner$postcode),
-  lng = round(pc4_coords[, "X"], 6),
-  lat = round(pc4_coords[, "Y"], 6)
+  id  = as.integer(pc4_sf_geom$postcode),
+  lng = round(pc4_all_coords[, "X"], 6),
+  lat = round(pc4_all_coords[, "Y"], 6)
 )
 
 write_json(pc4_centroids,
-           file.path(EXPORT_DIR, "pc4_centroids.json"),
+           file.path(export_dir, "pc4_centroids.json"),
            dataframe = "rows")
-message("  pc4_centroids.json: ", nrow(pc4_centroids), " centroids")
+message("pc4_centroids.json: ", nrow(pc4_centroids), " centroids")
 
 # ── SECTION 12: ODiN pipeline stub ────────────────────────────────────────────
 # =============================================================================
@@ -1036,6 +1036,34 @@ if (file.exists(ODIN_DB)) {
   message("  Expected file: edges-ovin-2022.sqlite")
   message("  Pipeline is ready — just point ODIN_DB at the correct path and re-run")
 }
+
+# ── SECTION 13: Supplementary PC4 stats for model (outer-area flows) ──────────
+message("\n=== Section 13: Supplementary PC4 stats ===")
+
+edges_all <- read_parquet(file.path(EXPORT_DIR, "edges_woonwerk_pc4.parquet"))
+pc4_stats_existing <- read_parquet(file.path(EXPORT_DIR, "pc4_zh_2024_stats.parquet"))
+
+all_pcs  <- unique(c(edges_all$origin_id, edges_all$destination_id))
+missing  <- all_pcs[!all_pcs %in% pc4_stats_existing$postcode]
+message("  Missing PC4s to supplement: ", length(missing))
+
+pc4_gpkg <- list.files(
+  file.path(local_data_dir, "raw/pc4/extracted"),
+  pattern = "\\.gpkg$", full.names = TRUE, recursive = TRUE)[1]
+pc4_nl_full <- st_read(pc4_gpkg, quiet = TRUE)
+
+pc4_missing <- pc4_nl_full |>
+  filter(postcode %in% missing) |>
+  st_drop_geometry()
+
+pc4_missing_clean <- drop_suppressed(pc4_missing, label = "pc4_supplementary")
+
+shared_cols <- intersect(names(pc4_missing_clean), names(pc4_stats_existing))
+pc4_missing_clean <- pc4_missing_clean |> select(all_of(shared_cols))
+
+safe_write_parquet(pc4_missing_clean,
+  file.path(EXPORT_DIR, "pc4_supplementary_stats.parquet"))
+message("  Exported: ", nrow(pc4_missing_clean), " rows")
 
 # ── Final summary ──────────────────────────────────────────────────────────────
 message("\n========================================")

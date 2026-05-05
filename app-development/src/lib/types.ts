@@ -23,7 +23,7 @@ export interface Variable {
   // Falls back to `key` if a scale is absent from this map.
   columnAt?: Record<string, string>;
   unit?: string;
-  source?: 'nodes' | 'nodes_pc4' | 'nodes_ink' | 'nodes_opl' | 'nodes_ink_pc4' | 'nodes_opl_pc4' | 'flow_summary';
+  source?: 'nodes_emp' | 'nodes_ink' | 'nodes_opl' | 'flow_summary' | 'flows' | 'nodes_ink_pc4' | 'nodes_opl_pc4';
 }
 
 export interface EdgeDataset {
@@ -58,8 +58,8 @@ export interface ActiveEdgeLayer {
   period:        string;
   visible:       boolean;
   // Optional dimension filters — null means no filter (all values)
-  inkFilter:     string | null;  // income category: '1'–'5' or null
-  oplFilter:     string | null;  // education category: '1'–'3' or null
+  inkFilter:     string[];  // income categories: [] = all, ['1','2'] = selected
+  oplFilter:     string[];  // education categories: [] = all
   flowMin?:      number;         // populated after loading, for legend
   flowMax?:      number;
 }

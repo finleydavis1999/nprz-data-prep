@@ -517,6 +517,23 @@ for (name in names(boundary_levels)) {
   message("  ", name, ": ", length(codes), " municipalities, ",
           round(file.size(outpath)/1024, 1), " KB")
 }
+# edges_woonwerk_pc4 with inks and opl dimensions retained
+ww_breakdown <- dbGetQuery(con_ww, sprintf("
+  SELECT woonpostcode AS origin_id, werkpostcode AS destination_id,
+         year AS periode, inks, opl,
+         SUM(value)/6 AS flow_value
+  FROM woonwerk_19992018_pc
+  WHERE year IN ('20072012','20122017')
+  AND age IS NOT NULL
+  AND sectorcat IS NULL AND soortbaan IS NULL
+  AND (woonpostcode IN (%s) OR werkpostcode IN (%s))
+  AND (inks IS NOT NULL OR opl IS NOT NULL)
+  GROUP BY woonpostcode, werkpostcode, year, inks, opl
+", pc4_in, pc4_in)) |>
+  mutate(origin_id = as.integer(origin_id),
+         destination_id = as.integer(destination_id)) |>
+  filter(flow_value >= 1)
+write_parquet(ww_breakdown, file.path(EXPORT_DIR, "edges_woonwerk_ink_opl_pc4.parquet"))
 
 # Gemeente centroids for flow line rendering
 cents_coords <- st_coordinates(st_centroid(st_transform(geom_gemeente, 4326)))
@@ -533,6 +550,20 @@ write_json(centroids,
            file.path(export_dir, "gemeente_centroids.json"),
            dataframe = "rows")
 message("  gemeente_centroids.json: ", nrow(centroids), " centroids")
+
+# Donut polygon: middle boundary minus inner boundary
+# Used by MapLibre to clip outer choropleth layers in "both" mode
+donut_wgs84 <- st_difference(
+  middle_boundary_wgs84 |> st_make_valid(),
+  inner_boundary_wgs84  |> st_make_valid()
+) |> st_make_valid()
+
+safe_write_geojson(
+  st_sf(geometry = st_geometry(donut_wgs84)),
+  file.path(export_dir, "outer_donut.geojson"),
+  layer_options = character(0)
+)
+message("  outer_donut.geojson exported")
 
 # ============================================================
 # SECTION 11: FINAL SUMMARY

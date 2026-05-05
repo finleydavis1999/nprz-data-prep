@@ -382,27 +382,27 @@ export const VARIABLES: Variable[] = [
     },
   },
 
-  // ── Employment nodes PC4 (nodes_summary_pc4.parquet) ─────────
-  // Parallel to gemeente nodes but at PC4 scale
+  // ── Employment nodes (nodes_summary_gem + nodes_summary_pc4) ─────────────────
+  // Single entry per concept; fetchRows routes to correct parquet by scaleKey.
   {
-    key: 'pc4_total_banen_werk', label: 'Jobs at work location (PC4)', group: 'Employment (nodes)',
-    canNormalise: true, availableAt: ['pc4'], source: 'nodes_pc4',
+    key: 'nodes_banen_werk', label: 'Jobs at work location', group: 'Employment (nodes)',
+    canNormalise: true, availableAt: ['gemeente', 'pc4'], source: 'nodes_emp',
   },
   {
-    key: 'pc4_total_banen_woon', label: 'Employed residents (PC4)', group: 'Employment (nodes)',
-    canNormalise: true, availableAt: ['pc4'], source: 'nodes_pc4',
+    key: 'nodes_banen_woon', label: 'Employed residents', group: 'Employment (nodes)',
+    canNormalise: true, availableAt: ['gemeente', 'pc4'], source: 'nodes_emp',
   },
   {
-    key: 'pc4_total_inwoners', label: 'Population (CBS microdata, PC4)', group: 'Employment (nodes)',
-    canNormalise: false, availableAt: ['pc4'], source: 'nodes_pc4',
+    key: 'nodes_inwoners', label: 'Population (CBS microdata)', group: 'Employment (nodes)',
+    canNormalise: false, availableAt: ['gemeente', 'pc4'], source: 'nodes_emp',
   },
   {
-    key: 'pc4_ratio_banen_inwoners', label: 'Jobs / residents ratio (PC4)', group: 'Employment (nodes)',
-    canNormalise: false, availableAt: ['pc4'], source: 'nodes_pc4',
+    key: 'nodes_ratio_banen_inwoners', label: 'Jobs / residents ratio', group: 'Employment (nodes)',
+    canNormalise: false, availableAt: ['gemeente', 'pc4'], source: 'nodes_emp',
   },
   {
-    key: 'pc4_ratio_werkenden_inwoners', label: 'Employment rate proxy (PC4)', group: 'Employment (nodes)',
-    canNormalise: false, availableAt: ['pc4'], source: 'nodes_pc4',
+    key: 'nodes_ratio_werkenden_inwoners', label: 'Employment rate (proxy)', group: 'Employment (nodes)',
+    canNormalise: false, availableAt: ['gemeente', 'pc4'], source: 'nodes_emp',
   },
 
   // ── Income breakdown — both gemeente and PC4 ─────────────────────────────────
@@ -443,26 +443,36 @@ export const VARIABLES: Variable[] = [
     canNormalise: true, availableAt: ['gemeente', 'pc4'], source: 'nodes_opl',
   },
 
-  // ── Employment nodes (nodes_summary_gem.parquet, jaar=2017) ──
+  // ── Commuting data (derived from edge parquets via DuckDB) ──────────────────
+  // source: 'flows' — fetchRows routes to pc4 or gemeente parquet by scaleKey.
+  // Period defaults to 20122017. One entry per concept, chips show pc4 + gemeente.
   {
-    key: 'total_banen_werk', label: 'Jobs at work location', group: 'Employment (nodes)',
-    canNormalise: true, availableAt: ['gemeente'], source: 'nodes',
+    key: 'flow_outflow',        label: 'Commuters leaving (outflow)', group: 'Commuting data',
+    canNormalise: true, availableAt: ['pc4', 'gemeente'], source: 'flows',
   },
   {
-    key: 'total_banen_woon', label: 'Employed residents', group: 'Employment (nodes)',
-    canNormalise: true, availableAt: ['gemeente'], source: 'nodes',
+    key: 'flow_inflow',         label: 'Commuters arriving (inflow)', group: 'Commuting data',
+    canNormalise: true, availableAt: ['pc4', 'gemeente'], source: 'flows',
   },
   {
-    key: 'total_inwoners', label: 'Population (CBS microdata)', group: 'Employment (nodes)',
-    canNormalise: false, availableAt: ['gemeente'], source: 'nodes',
+    key: 'flow_internal',       label: 'Internal commuters (home = work area)', group: 'Commuting data',
+    canNormalise: true, availableAt: ['pc4', 'gemeente'], source: 'flows',
   },
   {
-    key: 'ratio_banen_inwoners', label: 'Jobs / residents ratio', group: 'Employment (nodes)',
-    canNormalise: false, availableAt: ['gemeente'], source: 'nodes',
+    key: 'flow_net',            label: 'Net flow (inflow − outflow)', group: 'Commuting data',
+    canNormalise: false, availableAt: ['pc4', 'gemeente'], source: 'flows',
   },
   {
-    key: 'ratio_werkenden_inwoners', label: 'Employment rate (proxy)', group: 'Employment (nodes)',
-    canNormalise: false, availableAt: ['gemeente'], source: 'nodes',
+    key: 'flow_n_destinations', label: 'Number of destinations', group: 'Commuting data',
+    canNormalise: false, availableAt: ['pc4', 'gemeente'], source: 'flows',
+  },
+  {
+    key: 'flow_n_origins',      label: 'Number of origins', group: 'Commuting data',
+    canNormalise: false, availableAt: ['pc4', 'gemeente'], source: 'flows',
+  },
+  {
+    key: 'flow_self_containment', label: 'Self-containment (internal / outflow)', group: 'Commuting data',
+    canNormalise: false, availableAt: ['pc4', 'gemeente'], source: 'flows',
   },
 ];
 
@@ -579,6 +589,37 @@ export const NORMALISATIONS = [
   { key: 'per_1000', label: 'Per 1k pop' },
 ] as const;
 
+// ── Inner area feature IDs per outer scale ───────────────────────────────────
+// Used by the "isolate study area" toggle to filter outer layers.
+// These are the gemeente/wijk/pc4 codes whose centroids fall within the
+// 12-municipality inner boundary.
+
+export const INNER_GEMEENTE_CODES = [
+  'GM0489','GM0502','GM0542','GM0556','GM0597',
+  'GM0599','GM0606','GM0613','GM0622','GM1621','GM1930','GM1992',
+];
+
+// Wijk codes for inner municipalities — all wijken starting with these gemeente numbers
+export const INNER_GM_NUMS = ['0489','0502','0542','0556','0597',
+  '0599','0606','0613','0622','1621','1930','1992'];
+
+// PC4 codes whose centroids fall within the inner boundary.
+// Generated by sections 8-12 of 03_process_example_data.R (centroid-within join).
+// To update: run sort(pc4_study) in R after running that script and paste here.
+// Current value: 171 codes from the Rotterdam inner boundary centroid-within join.
+export const INNER_PC4_CODES: number[] = [
+  2900,2901,2902,2903,2904,2905,2906,2907,2908,2909,2910,2911,2912,
+  2913,2914,2915,2916,2917,2918,2919,2920,2921,2922,2923,2924,2925,
+  2980,2981,2982,2983,2984,2985,2986,2987,2988,2989,2990,2991,2992,
+  3011,3012,3013,3014,3015,3016,3021,3022,3023,3024,3025,3026,3027,
+  3028,3029,3031,3032,3033,3034,3035,3036,3037,3038,3039,3041,3042,
+  3043,3044,3045,3046,3047,3051,3052,3053,3054,3055,3056,3059,3061,
+  3062,3063,3064,3065,3066,3067,3068,3069,3071,3072,3073,3074,3075,
+  3076,3077,3078,3079,3081,3082,3083,3084,3085,3086,3087,3088,3089,
+];
+// NOTE: The above is an approximation. Replace with exact values from:
+// sort(as.integer(pc4_inner$postcode)) in R after running 03_process_example_data.R
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function findScale(key: string): Scale | undefined {
@@ -603,6 +644,11 @@ export function sharedScales(varKeyA: string, varKeyB: string): string[] {
   return a.availableAt.filter(s => b.availableAt.includes(s));
 }
 
+/** Study area scale chips = ALL scales the variable supports (user picks what to study).
+ *  Wider region chips = only outer scales (pc4/wijk/gemeente, broader metro coverage).
+ *  Rendering layer order (inner above mask, outer below) is determined separately
+ *  by isInnerScale() — not by which picker the user chose from.
+ */
 export function scaleChips(varKey: string): {
   inner: { key: string; label: string }[];
   outer: { key: string; label: string }[];
@@ -610,7 +656,9 @@ export function scaleChips(varKey: string): {
   const v = VARIABLES.find(x => x.key === varKey);
   if (!v) return { inner: [], outer: [] };
   return {
-    inner: INNER_SCALES.filter(s => v.availableAt.includes(s.key)).map(s => ({ key: s.key, label: s.label })),
+    // Study area picker: all scales the variable supports
+    inner: ALL_SCALES.filter(s => v.availableAt.includes(s.key)).map(s => ({ key: s.key, label: s.label })),
+    // Wider region picker: only outer scales
     outer: OUTER_SCALES.filter(s => v.availableAt.includes(s.key)).map(s => ({ key: s.key, label: s.label })),
   };
 }
