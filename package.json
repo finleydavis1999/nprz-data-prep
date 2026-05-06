@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "svelte-maplibre-gl": "^1.0.3"
+  }
+}
