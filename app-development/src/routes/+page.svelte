@@ -242,8 +242,7 @@
   // Load CBS variable list when model tab becomes active
   $effect(() => {
     if (activeTab === 'model' && dbReady && cbsCovariateVars.length === 0) {
-      conn.query(`DESCRIBE SELECT * FROM read_parquet('${dataURL('pc4_zh_2024_stats.parquet')}') LIMIT 0`)
-      conn.query(`DESCRIBE SELECT * FROM read_parquet('${dataURL('pc4_zh_2024_stats.parquet')}') LIMIT 0`)
+      queuedQuery(`DESCRIBE SELECT * FROM read_parquet('${dataURL('pc4_zh_2024_stats.parquet')}') LIMIT 0`)
         .then((res: any) => {
           const skip = new Set(['postcode', 'jaar', 'statcode', 'statnaam',
             'gemeentenaam', 'indelingswijziging_wijken_en_buurten',
@@ -262,6 +261,120 @@
   });
 
   let modelEnabled        = $state(false);
+  let modelType           = $state<'gravity' | 'nodal'>('gravity');
+
+  // ── Nodal model state ─────────────────────────────────────────────────────
+  let nodalModelOutcome   = $state('flow_outflow');    // Y variable
+  let nodalModelPredictors = $state<string[]>([]);     // X variables (CBS columns)
+  let nodalModelResults   = $state<{
+    r2: number; r2adj: number; n: number;
+    coefficients: { name: string; coef: number; se: number; t: number }[];
+    residuals: { id: number | string; observed: number; predicted: number; residual: number }[];
+  } | null>(null);
+  let nodalModelRunning   = $state(false);
+  let nodalModelError     = $state<string | null>(null);
+
+  const NODAL_OUTCOMES = [
+    { key: 'flow_outflow',          label: 'Commuter outflow' },
+    { key: 'flow_inflow',           label: 'Commuter inflow' },
+    { key: 'flow_internal',         label: 'Internal commuters' },
+    { key: 'flow_self_containment', label: 'Self-containment ratio' },
+    { key: 'nodes_banen_werk',      label: 'Jobs at work location' },
+    { key: 'nodes_banen_woon',      label: 'Employed residents' },
+    { key: 'nodes_ratio_banen_inwoners', label: 'Jobs/residents ratio' },
+  ];
+
+  async function runNodalModel() {
+    if (!dbReady || !conn) return;
+    nodalModelRunning = true; nodalModelError = null; nodalModelResults = null;
+
+    try {
+      // Load outcome variable
+      const outcomeRows = await fetchRows(nodalModelOutcome, 'pc4', 'none');
+      if (outcomeRows.length < 10) {
+        nodalModelError = 'Too few areas for regression.';
+        nodalModelRunning = false; return;
+      }
+
+      // Load CBS covariates
+      const cbsRes = await queuedQuery(`
+        SELECT * FROM read_parquet('${dataURL('pc4_zh_2024_stats.parquet')}')
+        UNION ALL
+        SELECT * FROM read_parquet('${dataURL('pc4_supplementary_stats.parquet')}')
+      `);
+      const cbsMap = new Map<number, any>(
+        cbsRes.toArray().map((r: any) => { const j = r.toJSON(); return [Number(j.postcode), j]; })
+      );
+
+      // Build design matrix
+      const predictorKeys = nodalModelPredictors.slice(0, 5); // max 5 predictors
+      const Xrows: number[][] = [];
+      const Yrows: number[]   = [];
+      const ids: (number | string)[] = [];
+
+      for (const row of outcomeRows) {
+        const y = Number(row.value);
+        if (!isFinite(y) || y <= -99990) continue;
+        const cbs = cbsMap.get(Number(row.id));
+        if (!cbs) continue;
+
+        const xs = predictorKeys.map(k => {
+          const v = Number(cbs[k]);
+          return (isFinite(v) && v > -99990) ? Math.log(Math.max(v, 0.01)) : NaN;
+        });
+        if (xs.some(x => !isFinite(x))) continue;
+
+        Xrows.push([1, ...xs]);
+        Yrows.push(Math.log(Math.max(y, 0.01)));
+        ids.push(row.id);
+      }
+
+      if (Xrows.length < predictorKeys.length + 3) {
+        nodalModelError = `Too few valid areas (${Xrows.length}).`;
+        nodalModelRunning = false; return;
+      }
+
+      const fit = olsFit(Xrows, Yrows);
+      if (!fit) { nodalModelError = 'Singular matrix — check for collinear predictors.'; nodalModelRunning = false; return; }
+
+      const varNames = ['intercept', ...predictorKeys];
+      const residuals = ids.map((id, i) => ({
+        id,
+        observed:  Math.exp(Yrows[i]),
+        predicted: Math.exp(fit.fitted[i]),
+        residual:  Yrows[i] - fit.fitted[i],
+      }));
+
+      nodalModelResults = {
+        r2: fit.r2, r2adj: fit.r2adj, n: Xrows.length,
+        coefficients: varNames.map((name, i) => ({
+          name, coef: fit.coef[i], se: fit.se[i], t: fit.coef[i] / fit.se[i],
+        })),
+        residuals,
+      };
+
+      // Draw nodal residuals as choropleth
+      const scale = findScale('pc4');
+      if (!scale || !map) return;
+      const maxAbs = Math.max(...residuals.map(r => Math.abs(r.residual)), 0.01);
+      try { map.removeFeatureState({ source: 'pc4-source' }); } catch (_) {}
+      for (const r of residuals) {
+        // Use feature state 'resid' for colour, cls for standard choropleth
+        map.setFeatureState(
+          { source: 'pc4-source', id: r.id },
+          { cls: Math.round(2 + (r.residual / maxAbs) * 2) }  // 0-4 mapped to colour
+        );
+      }
+      setColours('pc4', ['#e63946','#f4a261','#dddddd','#74c476','#2a9d8f'], 0.72);
+      setLayerVis('pc4-fill',    'visible');
+      setLayerVis('pc4-outline', 'visible');
+
+    } catch(e) {
+      nodalModelError = `Model error: ${e}`;
+      console.error(e);
+    }
+    nodalModelRunning = false;
+  }
   let modelPeriod         = $state<string>('20122017');
   let modelOriginKey      = $state('nodes_banen_woon');
   let modelDestKey        = $state('nodes_banen_werk');
@@ -411,7 +524,7 @@
           ? 'AND origin_id = destination_id'
           : '';
 
-      const flowRes = await conn.query(`
+      const flowRes = await queuedQuery(`
         SELECT origin_id, destination_id, SUM(flow_value) AS flow_value
         FROM read_parquet('${dataURL(flowFile)}')
         WHERE periode = '${modelPeriod}'
@@ -430,7 +543,7 @@
       // Step 3: Load PC4 node variables (inner area) and CBS stats (middle boundary)
       // Flows involving PC4s outside the middle boundary (~7.6% of flows, max value 35)
       // are skipped — these are low-value long-distance commutes not meaningful for model
-      const nodeRes = await conn.query(`
+      const nodeRes = await queuedQuery(`
         SELECT postcode, total_banen_werk, total_banen_woon, total_inwoners,
                ratio_banen_inwoners, ratio_werkenden_inwoners
         FROM read_parquet('${dataURL('nodes_summary_pc4.parquet')}')
@@ -443,7 +556,7 @@
       // Step 4: Load CBS PC4 stats — middle boundary + supplementary for outer PCs
       // pc4_zh_2024_stats covers the middle boundary (~600 PC4s for map display)
       // pc4_supplementary_stats covers the remaining ~961 PCs that appear in edge data
-      const cbsRes = await conn.query(`
+      const cbsRes = await queuedQuery(`
         SELECT * FROM read_parquet('${dataURL('pc4_zh_2024_stats.parquet')}')
         UNION ALL
         SELECT * FROM read_parquet('${dataURL('pc4_supplementary_stats.parquet')}')
@@ -608,9 +721,11 @@
         type: 'Feature' as const,
         properties: {
           residual:  r.residual,
-          norm:      r.residual / maxAbs,  // -1 to +1
+          norm:      r.residual / maxAbs,
           observed:  r.observed,
           predicted: r.predicted,
+          origin_id: r.origin_id,
+          dest_id:   r.dest_id,
         },
         geometry: { type: 'LineString' as const, coordinates: [o, d] },
       }];
@@ -665,11 +780,29 @@
   // ── MapLibre + DuckDB ─────────────────────────────────────
   let map: maplibregl.Map | null = null;
   let mapReady  = $state(false);
+  // Popup state
+  interface PopupInfo {
+    x: number; y: number;  // screen pixels
+    title: string;
+    rows: { label: string; value: string }[];
+  }
+  let popup = $state<PopupInfo | null>(null);
   let db: duckdb.AsyncDuckDB | null = null;
   let conn: any = null;
   let dbReady   = $state(false);
   // Non-reactive store for flow ranges (avoids triggering $effect loop)
   const flowRanges = new Map<string, { min: number; max: number }>();
+
+  // ── Serial query queue ────────────────────────────────────────────────────────
+  // DuckDB-WASM throws DataCloneError when two queries run concurrently on the
+  // same connection. All conn.query calls go through this queue to serialise them.
+  let queryQueue: Promise<any> = Promise.resolve();
+
+  function queuedQuery(sql: string): Promise<any> {
+    const p = queryQueue.then(() => conn.query(sql));
+    queryQueue = p.catch(() => {});  // keep queue alive even if query fails
+    return p;  // return the actual promise so callers get the result
+  }
 
   // ── Legend state ──────────────────────────────────────────
   let nodalBreaks: number[] = $state([]);
@@ -728,13 +861,13 @@
       const col = varKey.replace(/^nodes_/, '');
       if (scaleKey === 'pc4') {
         const url = dataURL('nodes_summary_pc4.parquet');
-        const res = await conn.query(
+        const res = await queuedQuery(
           `SELECT postcode AS id, "${col}"::DOUBLE AS value FROM read_parquet('${url}') WHERE jaar = 2017`
         );
         return res.toArray().map((r: any) => r.toJSON());
       } else {
         const url = dataURL('nodes_summary_gem.parquet');
-        const res = await conn.query(
+        const res = await queuedQuery(
           `SELECT gemeentecode AS id, "${col}"::DOUBLE AS value FROM read_parquet('${url}') WHERE jaar = 2017`
         );
         return res.toArray().map((r: any) => r.toJSON());
@@ -750,7 +883,7 @@
       const inkLabel = inkLabels[inkCat];
       if (scaleKey === 'pc4') {
         const url = dataURL('nodes_demo_inkomen_pc4.parquet');
-        const res = await conn.query(`
+        const res = await queuedQuery(`
           SELECT postcode AS id, SUM(n)::DOUBLE AS value
           FROM read_parquet('${url}')
           WHERE jaar = 2017 AND ink_label = '${inkLabel}'
@@ -759,7 +892,7 @@
         return res.toArray().map((r: any) => r.toJSON());
       } else {
         const url = dataURL('nodes_demo_inkomen_gem.parquet');
-        const res = await conn.query(`
+        const res = await queuedQuery(`
           SELECT gemeentecode AS id, SUM(n)::DOUBLE AS value
           FROM read_parquet('${url}')
           WHERE jaar = 2017 AND ink_label = '${inkLabel}'
@@ -776,7 +909,7 @@
       const oplLabel = oplLabels[oplCat];
       if (scaleKey === 'pc4') {
         const url = dataURL('nodes_demo_opleiding_pc4.parquet');
-        const res = await conn.query(`
+        const res = await queuedQuery(`
           SELECT postcode AS id, SUM(n)::DOUBLE AS value
           FROM read_parquet('${url}')
           WHERE jaar = 2017 AND opl_label = '${oplLabel}'
@@ -785,7 +918,7 @@
         return res.toArray().map((r: any) => r.toJSON());
       } else {
         const url = dataURL('nodes_demo_opleiding_gem.parquet');
-        const res = await conn.query(`
+        const res = await queuedQuery(`
           SELECT gemeentecode AS id, SUM(n)::DOUBLE AS value
           FROM read_parquet('${url}')
           WHERE jaar = 2017 AND opl_label = '${oplLabel}'
@@ -857,13 +990,13 @@
                ) i ON o.origin_id = i.origin_id`;
       }
       if (!sql) return [];
-      const res = await conn.query(sql);
+      const res = await queuedQuery(sql);
       return res.toArray().map((r: any) => r.toJSON());
     }
 
         if (src === 'flow_summary') {
       const url = dataURL('flow_summary.parquet');
-      const res = await conn.query(
+      const res = await queuedQuery(
         `SELECT origin_id AS id, "${varKey}"::DOUBLE AS value FROM read_parquet('${url}')`
       );
       return res.toArray().map((r: any) => r.toJSON());
@@ -874,7 +1007,7 @@
     const url    = dataURL(scale.stats);
 
     // Check column exists before querying
-    const desc = await conn.query(`DESCRIBE SELECT * FROM read_parquet('${url}') LIMIT 0`);
+    const desc = await queuedQuery(`DESCRIBE SELECT * FROM read_parquet('${url}') LIMIT 0`);
     const cols  = desc.toArray().map((r: any) => r.toJSON().column_name as string);
     if (!cols.includes(col)) {
       console.warn(`[fetchRows] Column "${col}" (varKey="${varKey}") not found in ${scale.stats}`);
@@ -885,7 +1018,7 @@
     console.log(`[fetchRows] OK: varKey="${varKey}" → col="${col}" at scale="${scaleKey}"`);
 
     const expr = normSQL(col, norm);
-    const res  = await conn.query(
+    const res  = await queuedQuery(
       `SELECT "${scale.id}" AS id, (${expr}) AS value FROM read_parquet('${url}')`
     );
     const rows = res.toArray().map((r: any) => r.toJSON());
@@ -1021,7 +1154,7 @@
       if (oplFilter.length > 0) filterWhere += ` AND opl IN (${oplFilter.join(',')})`;
     }
 
-    const res = await conn.query(`
+    const res = await queuedQuery(`
       SELECT "${ds.idCols.origin}" AS o, "${ds.idCols.destination}" AS d,
              SUM(flow_value) AS flow_value
       FROM read_parquet('${flowUrl}')
@@ -1037,15 +1170,6 @@
     const minFlow = flowValues.length > 0 ? Math.min(...flowValues) : 0;
     flowRanges.set(datasetKey, { min: minFlow, max: maxFlow });
 
-    // Diagnostics — remove after confirming fix
-    console.log(`[edges] ${datasetKey}: ${flows.length} flows, centroid map size: ${centroids.size}`);
-    if (flows.length > 0) {
-      const sample = flows[0];
-      console.log(`[edges] sample flow: o=${sample.o} (${typeof sample.o}), d=${sample.d} (${typeof sample.d})`);
-      console.log(`[edges] centroid lookup o: ${centroids.get(String(sample.o))}`);
-      console.log(`[edges] centroid lookup d: ${centroids.get(String(sample.d))}`);
-    }
-
     const features: Feature[] = flows.flatMap((flow: any) => {
       const origin = centroids.get(String(flow.o));
       const dest   = centroids.get(String(flow.d));
@@ -1055,6 +1179,8 @@
         properties: {
           flow_value: flow.flow_value,
           flow_norm:  Number(flow.flow_value) / maxFlow,
+          origin_id:  flow.o,
+          dest_id:    flow.d,
         },
         geometry: { type: 'LineString' as const, coordinates: [origin, dest] },
       }];
@@ -1078,6 +1204,25 @@
             50, 0.4, 500, 1, 2000, 2.5, 10000, 5],
         },
       });
+      // Arrow at midpoint showing direction (destination end)
+      const aid = `flows-${datasetKey}-arrows`;
+      if (!map.getLayer(aid)) {
+        map.addLayer({
+          id: aid, type: 'symbol', source: sid,
+          layout: {
+            'symbol-placement': 'line',
+            'symbol-spacing': 200,
+            'icon-image': 'arrow-icon',
+            'icon-size': 0.6,
+            'icon-allow-overlap': true,
+            'icon-rotate': 90,  // point arrow along line direction
+          },
+          paint: {
+            'icon-color': ds.colour,
+            'icon-opacity': ['interpolate', ['linear'], ['get', 'flow_norm'], 0, 0.2, 1, 0.8],
+          },
+        });
+      }
     }
   }
 
@@ -1291,12 +1436,15 @@
       // Edge layers
       for (const layer of edgeLayers) {
         const lid = `flows-${layer.datasetKey}-layer`;
+        const aid = `flows-${layer.datasetKey}-arrows`;
         if (layer.visible) {
           await loadEdgeLayer(layer.datasetKey, layer.period,
-                              layer.inkFilter, layer.oplFilter);
+                              layer.inkFilter as string[], layer.oplFilter as string[]);
           setLayerVis(lid, 'visible');
+          setLayerVis(aid, 'visible');
         } else if (map?.getLayer(lid)) {
           setLayerVis(lid, 'none');
+          setLayerVis(aid, 'none');
         }
       }
 
@@ -1415,6 +1563,21 @@
       const sqData = sqCtx.getImageData(0, 0, sqSize, sqSize);
       map!.addImage('grid-square', sqData, { sdf: true });
 
+      // Arrow icon for flow direction — simple triangle pointing right
+      const arrowSize = 16;
+      const arrowCanvas = document.createElement('canvas');
+      arrowCanvas.width = arrowSize; arrowCanvas.height = arrowSize;
+      const arrowCtx = arrowCanvas.getContext('2d')!;
+      arrowCtx.fillStyle = '#ffffff';
+      arrowCtx.beginPath();
+      arrowCtx.moveTo(arrowSize, arrowSize / 2);   // tip (right)
+      arrowCtx.lineTo(0, 0);                         // top-left
+      arrowCtx.lineTo(0, arrowSize);                 // bottom-left
+      arrowCtx.closePath();
+      arrowCtx.fill();
+      const arrowData = arrowCtx.getImageData(0, 0, arrowSize, arrowSize);
+      map!.addImage('arrow-icon', arrowData, { sdf: true });
+
       // icon-size = target_screen_px / 64.
       // Values computed from metres-per-pixel at lat 51.9° (Rotterdam), 88% fill to avoid overlap.
       // 100m: z10=0.029, z12=0.117, z14=0.467, z16=1.866
@@ -1460,6 +1623,64 @@
       map!.addLayer({
         id: 'boundary-line', type: 'line', source: 'boundary-source',
         paint: { 'line-color': '#e63946', 'line-width': 2, 'line-dasharray': [4, 2] },
+      });
+
+      // ── Click handlers ────────────────────────────────────────────────────
+      // Choropleth polygon click — show area info
+      const choroplethLayers = ALL_SCALES.map(s => `${s.key}-fill`);
+      map!.on('click', (e) => {
+        const layers = choroplethLayers.filter(id => map!.getLayer(id) &&
+          map!.getLayoutProperty(id, 'visibility') === 'visible');
+        if (layers.length === 0) return;
+        const features = map!.queryRenderedFeatures(e.point, { layers });
+        if (!features.length) { popup = null; return; }
+        const f = features[0];
+        const scale = ALL_SCALES.find(s => `${s.key}-fill` === f.layer.id);
+        const cls   = f.state?.cls;
+        popup = {
+          x: e.point.x, y: e.point.y,
+          title: scale?.label ?? 'Area',
+          rows: [
+            { label: 'ID',    value: String(f.id) },
+            { label: 'Class', value: cls != null && cls >= 0 ? `Class ${cls + 1}` : 'No data' },
+          ],
+        };
+      });
+
+      // Flow line click — show OD info
+      map!.on('click', (e) => {
+        const flowLayers = EDGE_DATASETS
+          .map(d => `flows-${d.key}-layer`)
+          .filter(id => map!.getLayer(id) &&
+            map!.getLayoutProperty(id, 'visibility') === 'visible');
+        if (!flowLayers.length) return;
+        const features = map!.queryRenderedFeatures(e.point, { layers: flowLayers });
+        if (!features.length) return;
+        const f   = features[0];
+        const p   = f.properties;
+        const res = p?.residual != null ? Number(p.residual).toFixed(3) : null;
+        popup = {
+          x: e.point.x, y: e.point.y,
+          title: 'Flow',
+          rows: [
+            { label: 'From',      value: String(p?.origin_id ?? '—') },
+            { label: 'To',        value: String(p?.dest_id   ?? '—') },
+            { label: 'Observed',  value: p?.observed  != null ? Math.round(Number(p.observed)).toLocaleString()  : String(p?.flow_value ?? '—') },
+            ...(p?.predicted != null ? [{ label: 'Predicted', value: Math.round(Number(p.predicted)).toLocaleString() }] : []),
+            ...(res != null ? [{ label: 'Residual', value: res }] : []),
+          ],
+        };
+      });
+
+      // Change cursor on hover
+      map!.on('mousemove', (e) => {
+        const allClickable = [
+          ...choroplethLayers,
+          ...EDGE_DATASETS.map(d => `flows-${d.key}-layer`),
+          ...EDGE_DATASETS.map(d => `flows-${d.key}-arrows`),
+        ].filter(id => map!.getLayer(id));
+        const hit = map!.queryRenderedFeatures(e.point, { layers: allClickable });
+        map!.getCanvas().style.cursor = hit.length ? 'pointer' : '';
       });
 
       mapReady = true;
@@ -1694,12 +1915,103 @@
   <!-- ── MODEL TAB ── -->
   {#if activeTab === 'model'}
     <div class="tab-section-header">
-      <span style="font-size:0.72rem; color:#7b2d8b; font-weight:600">PC4 Gravity Model</span>
+      <span style="font-size:0.72rem; color:#7b2d8b; font-weight:600">
+        {modelType === 'gravity' ? 'PC4 Gravity Model' : 'PC4 Nodal Model'}
+      </span>
       <button class="collapse-btn" onclick={() => modelPanelOpen = !modelPanelOpen}>
         {modelPanelOpen ? '▲' : '▼'}
       </button>
     </div>
-    {#if modelPanelOpen}
+
+    <!-- Model type selector -->
+    <div class="chips">
+      <button class="chip" class:chip-on={modelType === 'gravity'}
+              onclick={() => modelType = 'gravity'}>Gravity (OD flows)</button>
+      <button class="chip" class:chip-on={modelType === 'nodal'}
+              onclick={() => modelType = 'nodal'}>Nodal (area level)</button>
+    </div>
+
+    {#if modelPanelOpen && modelType === 'nodal'}
+      <div class="field">
+        <span class="flbl">Outcome variable (Y)</span>
+        <select bind:value={nodalModelOutcome}>
+          {#each NODAL_OUTCOMES as v}
+            <option value={v.key}>{v.label}</option>
+          {/each}
+          {#each (cbsCovariateVars ?? []) as v}
+            <option value={v.key}>{v.label}</option>
+          {/each}
+        </select>
+      </div>
+
+      <div class="field">
+        <span class="flbl">Predictors (CBS variables, max 5)</span>
+        {#each nodalModelPredictors as pred, i}
+          <div class="calc-term" style="margin-bottom:0.3rem">
+            <div class="calc-term-type">
+              <select value={pred}
+                      onchange={(e) => {
+                        nodalModelPredictors = nodalModelPredictors.map((p, idx) =>
+                          idx === i ? (e.target as HTMLSelectElement).value : p);
+                      }}>
+                {#each (cbsCovariateVars ?? []) as v}
+                  <option value={v.key}>{v.label}</option>
+                {/each}
+              </select>
+              <button class="calc-remove"
+                      onclick={() => nodalModelPredictors = nodalModelPredictors.filter((_, idx) => idx !== i)}>
+                ✕
+              </button>
+            </div>
+          </div>
+        {/each}
+        {#if nodalModelPredictors.length < 5}
+          <button class="calc-add"
+                  onclick={() => nodalModelPredictors = [...nodalModelPredictors,
+                    cbsCovariateVars[0]?.key ?? '']}>
+            + Add predictor
+          </button>
+        {/if}
+      </div>
+
+      <button class="model-run-btn" onclick={runNodalModel}
+              disabled={nodalModelRunning || nodalModelPredictors.length === 0}
+              style="background:#2a9d8f">
+        {nodalModelRunning ? 'Running…' : '▶ Run nodal model'}
+      </button>
+
+      {#if nodalModelError}
+        <p class="calc-warn">{nodalModelError}</p>
+      {/if}
+
+      {#if nodalModelResults}
+        <div class="model-results">
+          <div class="model-stat-row">
+            <span class="model-stat">R² <strong>{nodalModelResults.r2.toFixed(3)}</strong></span>
+            <span class="model-stat">Adj R² <strong>{nodalModelResults.r2adj.toFixed(3)}</strong></span>
+            <span class="model-stat">n <strong>{nodalModelResults.n}</strong></span>
+          </div>
+          <table class="model-table">
+            <thead><tr><th>Variable</th><th>β</th><th>SE</th><th>t</th></tr></thead>
+            <tbody>
+              {#each nodalModelResults.coefficients as row}
+                <tr>
+                  <td>{row.name}</td>
+                  <td>{row.coef.toFixed(3)}</td>
+                  <td>{row.se.toFixed(3)}</td>
+                  <td class:sig={Math.abs(row.t) > 2}>{row.t.toFixed(2)}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+          <p class="hint" style="margin-top:0.3rem">
+            Residuals shown as choropleth on PC4 map (teal = above predicted, red = below)
+          </p>
+        </div>
+      {/if}
+    {/if}
+
+    {#if modelPanelOpen && modelType === 'gravity'}
     <div class="field">
       <span class="flbl">Flow dataset</span>
       <div class="chips">
@@ -1950,6 +2262,20 @@
   {/if}
 
 </div>
+{/if}
+
+<!-- ── Popup ──────────────────────────────────────────────── -->
+{#if popup}
+  <div class="map-popup" style="left:{popup.x}px; top:{popup.y}px"
+       onclick={() => popup = null}>
+    <div class="popup-title">{popup.title} <span class="popup-close">✕</span></div>
+    {#each popup.rows as row}
+      <div class="popup-row">
+        <span class="popup-label">{row.label}</span>
+        <span class="popup-value">{row.value}</span>
+      </div>
+    {/each}
+  </div>
 {/if}
 
 <!-- ── Legend ─────────────────────────────────────────────── -->
@@ -2253,6 +2579,35 @@
     border-radius: 3px; flex-shrink: 0;
   }
   .collapse-btn:hover { background: #f0ede8; color: #666; }
+
+  /* ── Popup ──────────────────────────────────────────────── */
+  .map-popup {
+    position: fixed;
+    z-index: 1100;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.2);
+    padding: 0.6rem 0.8rem;
+    font-family: sans-serif;
+    font-size: 0.78rem;
+    min-width: 160px;
+    max-width: 240px;
+    pointer-events: auto;
+    transform: translate(-50%, -110%);
+  }
+  .popup-title {
+    font-weight: 700; font-size: 0.8rem;
+    color: #1a1a2e; margin-bottom: 0.35rem;
+    display: flex; justify-content: space-between;
+  }
+  .popup-close { color: #aaa; cursor: pointer; font-size: 0.7rem; }
+  .popup-row {
+    display: flex; justify-content: space-between;
+    gap: 0.5rem; padding: 0.1rem 0;
+    border-bottom: 1px solid #f5f5f5;
+  }
+  .popup-label { color: #888; }
+  .popup-value { font-weight: 500; color: #1a1a2e; }
 
   /* ── Model tab ───────────────────────────────────────────── */
   .model-run-btn {
