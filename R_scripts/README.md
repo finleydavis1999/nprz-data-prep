@@ -1,211 +1,110 @@
-# R Data Pipeline — CBS Administrative & Grid Data Preparation
+# NPRZ Data Preparation Pipeline
 
-This directory contains the complete R pipeline for downloading, processing, and exporting CBS (Statistics Netherlands) spatial data for use in web applications.
+R pipeline that processes CBS (Statistics Netherlands) open data and CBS microdata into the parquet and GeoJSON files served by the web app. All outputs go directly to `../app-development/static/data/`.
 
-## Main Script: `01_setup_and_process.R`
+## Scripts
 
-**This is the only script you need to run.** It's self-contained and orchestrates the entire pipeline in 10 sections.
-
-### Prerequisites
-
-Ensure these R packages are installed:
-
-```r
-install.packages(c("sf", "arrow", "dplyr", "stringr", "cbsodataR"))
+```
+R_scripts/preparing_data/
+├── 01_setup_and_process.R     # Main pipeline — CBS kerncijfers, grids, node summaries
+├── 03_process_example_data.R  # Study area boundary, PC4 centroids, inner boundary codes
+└── utils.R                    # Shared helper functions used by both scripts
 ```
 
-### How to Run
+Run `01_setup_and_process.R` first, then `03_process_example_data.R`.
 
-1. Open `app_core_setup/01_setup_and_process.R` in R or RStudio
-2. Run the entire script from top to bottom
-3. Monitor the console output for progress messages
-4. Outputs appear in `data/export/` when complete
+## Prerequisites
 
-### Runtime Expectations
+```r
+install.packages(c(
+  "tidyverse", "sf", "arrow", "duckdb",
+  "cbsodataR", "nngeo", "units"
+))
+```
 
-- **First run:** 10–30 minutes (downloads ~1 GB of data)
-- **Subsequent runs:** 5–10 minutes (reuses cached downloads)
-- **National geometry operations:** May take 2–5 minutes (expected for large datasets)
+- R ≥ 4.1
+- CBS microdata access is required for the employment node and commuting flow outputs. The CBS kerncijfers (open statistics) can be downloaded without credentials.
 
----
+## What each script produces
 
-## Pipeline Sections Explained
+### `01_setup_and_process.R`
 
-### SECTION 1: CONFIG & SETUP
-Defines study areas and output directories:
-- **Rijnmond:** 13 municipalities (Rotterdam, Schiedam, Vlaardingen, etc.)
-- **Zuid-Holland:** Province code PV28
-- **Output Dir:** `C:/NPRZ_project/data/`
+Downloads and processes CBS Kerncijfers Wijken en Buurten 2024 and CBS grid statistics. Outputs:
 
-### SECTION 2: LIBRARIES
-Loads required R packages: `sf`, `arrow`, `dplyr`, `cbsodataR`, `stringr`
+| File | Description |
+|------|-------------|
+| `buurt_2024.geojson` + `buurt_2024_stats.parquet` | Neighbourhood boundaries and statistics |
+| `wijk_2024.geojson` + `wijk_2024_stats.parquet` | District boundaries and statistics |
+| `gemeente_2024.geojson` + `gemeente_2024_stats.parquet` | Municipality boundaries and statistics |
+| `pc4_zh_2024.geojson` + `pc4_zh_2024_stats.parquet` | PC4 postcode boundaries and statistics (Zuid-Holland) |
+| `grid_100m_rijnmond.geojson` + `grid_100m_rijnmond_stats.parquet` | 100m grid cells clipped to Rijnmond |
+| `grid_500m_rijnmond.geojson` + `grid_500m_rijnmond_stats.parquet` | 500m grid cells clipped to Rijnmond |
+| `nodes_summary_pc4.parquet` + `nodes_summary_gem.parquet` | Employment totals from microdata by PC4 and gemeente |
+| `nodes_demo_inkomen_pc4.parquet` + `nodes_demo_inkomen_gem.parquet` | Income distribution of workers |
+| `nodes_demo_opleiding_pc4.parquet` + `nodes_demo_opleiding_gem.parquet` | Education level of workers |
+| `edges_woonwerk_pc4.parquet` + `edges_woonwerk_gem.parquet` | Home→work commuting flows |
+| `edges_werkwerk_pc4.parquet` + `edges_werkwerk_gem.parquet` | Job-to-job moves |
+| `edges_migration_pc4.parquet` + `edges_migration_gem.parquet` | Residential moves |
+| `edges_woonwerk_ink_opl_pc4.parquet` | Commuting flows with income and education breakdown (PC4) |
+| `pc4_supplementary_stats.parquet` | CBS stats for outer PC4s that appear in flow data but outside the main study area |
 
-### SECTION 3: DOWNLOAD DATA
-Downloads raw data from CBS (only if not already cached):
-- **100m grid (2024):** ~200 MB
-- **500m grid (2024):** ~20 MB
-- **PC4 postcodes (2024):** ~50 MB
-- **Kerncijfers (core statistics):** Via OData API
-- **Geometries:** Wijken/Buurten/Gemeenten
+### `03_process_example_data.R`
 
-**Cached in:** `data/raw/`
+Derives spatial metadata used by the app's boundary clip and model logic. Outputs:
 
-### SECTION 4: BUILD BOUNDARY & PROCESS GRIDS
-Creates a boundary polygon for the Rijnmond study area:
-1. Loads gemeente (municipality) geometries
-2. Filters to 13 Rijnmond gemeentes
-3. Unions into a single boundary polygon
-4. Used as spatial filter for grids
+| File | Description |
+|------|-------------|
+| `rotterdam_boundary.geojson` | Inner study area boundary (dashed red line on map) |
+| `outer_donut.geojson` | Middle boundary minus inner area (for "both" extent mode clipping) |
+| `pc4_centroids.json` | PC4 centroid coordinates for flow line rendering and haversine distance |
+| `gemeente_centroids.json` | Gemeente centroid coordinates for gemeente-level flow lines |
 
-### SECTION 5–6: GRID PROCESSING
-For 100m and 500m grids:
-1. **Pass 1:** Loose bbox pre-filter (2 km buffer around boundary)
-2. **Pass 2:** Precise polygon clip using centroid-in-polygon test
-3. **Drop suppressed columns:** Removes fully empty data columns
-4. **Project to WGS84 (EPSG:4326):** Web-standard CRS
-5. **Export to GeoParquet:** Geometry stored as WKT text
+This script also produces the `INNER_PC4_CODES` list pasted into `config.ts` — re-run and update if the study area boundary changes.
 
-**Output files:**
-- `grid_100m_rijnmond.parquet` (~6,000 rows)
-- `grid_500m_rijnmond.parquet` (~250 rows)
+## Data sources
 
-### SECTION 7: SUMMARY
-Progress report for grid processing
+| Dataset | Source | Notes |
+|---------|--------|-------|
+| Kerncijfers Wijken en Buurten 2024 | CBS OData (dataset 85984NED) | Open, downloaded via `cbsodataR` |
+| Vierkantstatistieken 100m/500m 2024 | https://download.cbs.nl/ | Open, ~200 MB download |
+| PC4 postcodes 2024 | https://download.cbs.nl/postcode/ | Open |
+| Wijken/Buurten geometries | CBS Geodata | Open |
+| Employment microdata (nodes, flows) | CBS microdata — restricted access | Requires institutional access via CBS Remote Access |
 
-### SECTION 8: ADMINISTRATIVE SCALES
-Joins statistics to administrative boundaries:
+All CBS data is © Statistics Netherlands. Attribution required in derived products.
 
-| Scale | Region | Rows | Output |
-|-------|--------|------|--------|
-| **Buurt** (neighbourhood) | Rijnmond | ~300 | `buurt_2024.parquet` |
-| **Wijk** (district/ward) | All NL | ~3,500 | `wijk_2024.parquet` |
-| **Gemeente** (municipality) | All NL | ~344 | `gemeente_2024.parquet` |
+## Column naming notes
 
-**Process:**
-1. Download kerncijfers from CBS OData (dataset 85984NED)
-2. Extract `WijkenEnBuurten` codes and split by administrative level
-3. Load geometry layers from GPKG file
-4. Filter geometry to only codes present in statistics (performance optimization)
-5. Left-join statistics onto filtered geometry
-6. Drop suppressed data columns (values of -99995, -99997)
-7. Reproject to WGS84
-8. Export to GeoParquet
+CBS uses different column names for the same concept at different spatial scales. The `columnAt` field in each `Variable` entry in `config.ts` maps scale keys to actual parquet column names. Key differences:
 
-### SECTION 9: PC4 POSTCODES
-Filters postcode (PC4) data to Zuid-Holland province:
+- Grid/PC4: `aantal_mannen` → Admin: `mannen`
+- Grid/PC4: `percentage_geb_nederland_herkomst_nederland` → Admin: `percentage_met_herkomstland_nederland`
+- Grid/PC4: `gemiddelde_huishoudensgrootte` → Admin: `gemiddelde_huishoudsgrootte`
 
-1. Downloads PC4 geometries (all NL)
-2. Downloads PC6-to-province lookup table
-3. Extracts unique PC4 codes for South Holland
-4. Filters PC4 geometry using lookup
-5. Drops suppressed columns
-6. Exports to GeoParquet
+See `config.ts` comments and `docs/DATA_SCHEMA.md` for the full mapping.
 
-**Output:** `pc4_zh_2024.parquet` (~1,500 rows)
+## Runtime expectations
 
-### SECTION 10: FINAL SUMMARY
-Reports all generated files and file sizes
-
----
-
-## Output Files
-
-All files are saved to `data/export/` as **GeoParquet** format:
-
-| File | Description | Geographic Scope | Rows |
-|------|-------------|------|------|
-| `grid_100m_rijnmond.parquet` | 100m grid cells | Rijnmond | ~6,000 |
-| `grid_500m_rijnmond.parquet` | 500m grid cells | Rijnmond | ~250 |
-| `buurt_2024.parquet` | Neighbourhoods | Rijnmond | ~300 |
-| `wijk_2024.parquet` | Districts/wards | All Netherlands | ~3,500 |
-| `gemeente_2024.parquet` | Municipalities | All Netherlands | ~344 |
-| `pc4_zh_2024.parquet` | Postcodes (PC4) | Zuid-Holland | ~1,500 |
-
-### File Format: GeoParquet
-
-Each parquet file contains:
-- **Geometry column:** `geometry_wkt` (WKT text format)
-- **Administrative codes:** `gemeentecode`, `wijkcode`, `buurtcode`, `pc4`, etc.
-- **Statistical variables:** Population, housing, energy, proximity metrics
-- **Metadata:** Encoding in UTF-8, compatible with GDAL, GDAL, Geopandas, DuckDB
-
----
-
-## Utility Scripts
-
-These are called by `01_setup_and_process.R` — normally you don't need to run them directly:
-
-- **`create_areas.R`** — Defines `gm_rijnmond` and `pv_zuidholland` vectors
-- **`grid_setup.R`** — Old version of grid processing logic (for reference only)
-- **`uploading_data.R`** — Old data download code (superseded by Section 3)
-
----
-
-## Data Sources & Attribution
-
-| Dataset | Source | License |
-|---------|--------|---------|
-| Vierkantstatistieken (grids) | https://download.cbs.nl/ | © CBS |
-| Wijken/Buurten (boundaries) | CBS Geodata | © CBS |
-| Kerncijfers (statistics) | CBS OData API | © CBS |
-| PC4 postcodes | https://download.cbs.nl/postcode/ | © CBS |
-| PC6 lookup | CBS household file | © CBS |
-
-**All data is © Statistics Netherlands (CBS)** — attribution required in derived products.
-
----
+- **First run of `01_setup_and_process.R`:** 20–60 minutes (downloads ~500 MB, large geometry operations)
+- **Subsequent runs:** 5–15 minutes (reuses cached downloads from `data/raw/`)
+- **`03_process_example_data.R`:** 5–10 minutes
 
 ## Troubleshooting
 
-### "object 'WijkenEnBuurten' not found"
-- **Cause:** Old kerncijfers RDS file with wrong dataset
-- **Fix:** Delete `data/raw/kerncijfers/kwb_2024_raw.rds` and re-run the script
+**`object 'WijkenEnBuurten' not found`**
+Delete `data/raw/kerncijfers/kwb_2024_raw.rds` and re-run — stale cache from an older dataset version.
 
-### Script hangs for 5+ minutes during administrative scales
-- **Cause:** Geometry joins on large national datasets
-- **Expected:** Normal — geometry is pre-filtered before joining
-- **Time estimate:** ~2–5 minutes for wijk/gemeente operations
-- **Tip:** Monitor console output; you should see "Geometry rows before/after filter" messages
+**Geometry operations hang**
+Expected for national-scale wijk/gemeente joins — allow 5+ minutes. Watch for "Geometry rows before/after filter" messages in the console.
 
-### Parquet files missing from `data/export/`
-- **Check:** Did the script complete successfully? (look for "FULL PIPELINE COMPLETE" message)
-- **Check:** Do intermediate .rds files exist in `data/processed/`?
-- **Fix:** Delete entire `data/raw/` and `data/processed/` folders and re-run
+**Parquet column not found in the app**
+Check the actual column name in R with `glimpse(your_df)` or `names(your_df)`. CBS column names vary between dataset versions and spatial scales. Update `columnAt` in `config.ts` accordingly.
 
-### ZIP extraction fails
-- **Cause:** Download corrupted or incomplete
-- **Fix:** Delete the `.zip` file in `data/raw/` and re-run (will re-download)
+**`outer_donut.geojson` is empty or malformed**
+Re-run section of `03_process_example_data.R` that generates the donut. This file is used by the "both" extent mode in the app and must be a valid polygon-with-hole covering the middle boundary minus the inner boundary.
 
-### DuckDB/Arrow/SF installation fails
-- **Fix:** Ensure you have R ≥ 4.0 and a C++ compiler
-- **Windows:** Install Rtools (https://cran.r-project.org/bin/windows/Rtools/)
-- **Mac:** Install Xcode Command Line Tools (`xcode-select --install`)
+## Documentation
 
----
-
-## Performance Notes
-
-- **Geometry operations are slow by design:** Exact spatial intersection is more accurate than bbox filters
-- **PC6 lookup download (2023 data):** Large file (~500 MB), downloaded once and cached
-- **National-scale geometry:** `wijk_nl` and `gemeente_nl` include ~3,500 and ~344 features respectively
-- **Pre-filtering optimization:** Geometry is filtered to match statistics BEFORE joining (massive speedup vs. join-then-filter)
-
----
-
-## Future Enhancements
-
-- [ ] Add multi-year support (2022, 2023, 2024)
-- [ ] Extend spatial coverage beyond Zuid-Holland
-- [ ] Cache more intermediate results to speed up re-runs
-- [ ] Add data validation checks (e.g., missing geometries)
-- [ ] Modularize into separate scripts for independence
-- [ ] Add unit tests for grid clipping and attribute joins
-
----
-
-## Questions or Issues?
-
-Refer to:
-- Main documentation: [../README.md](../README.md)
-- Web app setup: [../cbs-map/README.md](../cbs-map/README.md)
-- CBS data portal: https://www.cbs.nl/en-gb
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — data model and design decisions
+- [`docs/DATA_SCHEMA.md`](docs/DATA_SCHEMA.md) — parquet column reference by scale
+- [`docs/ADDING_DATASETS.md`](docs/ADDING_DATASETS.md) — step-by-step guide for adding new variables or scales
