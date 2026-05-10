@@ -19,9 +19,7 @@
 	import LayerCalculator from '$lib/ui/LayerCalculator.svelte';
 	import Legend from '$lib/cartography/Legend.svelte';
 	import Histogram from '$lib/cartography/Histogram.svelte';
-	import { runChoropleth } from '$lib/data/query.js';
 	import { runFlows } from '$lib/data/flowQuery.js';
-	import { loadManifest } from '$lib/data/manifest.js';
 	import { classify } from '$lib/cartography/classify.js';
 	import { paletteColors } from '$lib/cartography/palettes.js';
 	import { stepExpression } from '$lib/cartography/expression.js';
@@ -37,15 +35,7 @@
 	let { data } = $props();
 	let lassoActive = $state(false);
 
-	onMount(() => {
-		studyArea.init();
-	});
-
-	let manifest = $state(null);
-	let valueByArea = $state(new Map());
-	let querying = $state(false);
-	let lastQueryMs = $state(null);
-	let error = $state(/** @type {string | null} */ (null));
+	const manifest = $derived(manifestState.data);
 
 	let centroids = $state(/** @type {Record<string, [number,number]> | null} */ (null));
 	let flowResult = $state(/** @type {{flows:{o:string,d:string,value:number}[], min:number, max:number} | null} */ (null));
@@ -57,15 +47,12 @@
 	let flowMinWeightInitialized = false;
 	const FLOW_DEFAULT_TOP_FRACTION = 0.3;
 
-	// Load manifest once.
+	onMount(() => {
+		studyArea.init();
+	});
+
 	$effect(() => {
-		loadManifest()
-			.then((m) => {
-				manifest = m;
-			})
-			.catch((e) => {
-				error = `manifest: ${e.message}`;
-			});
+		studyArea.bindToScale(selection.scale);
 	});
 
 	// Load gemeente centroids once (used by FlowLayer to draw OD curves).
@@ -85,12 +72,6 @@
 			});
 	});
 
-	// Re-run choropleth query whenever any node selection field changes.
-	$effect(() => {
-		studyArea.bindToScale(selection.scale);
-	});
-
-	const manifest = $derived(manifestState.data);
 	// Re-run flow query whenever flow selection changes (only while enabled).
 	// Note: flow.minWeight is a client-side filter (see filteredFlows below).
 	$effect(() => {
@@ -183,9 +164,7 @@
 	// Min-weight slider bounds — driven by the current full result so the slider
 	// doesn't jump as the user drags it.
 	const flowMaxValue = $derived(flowResult?.max ?? 0);
-	const flowSliderStep = $derived(
-		flowMaxValue > 0 ? Math.max(flowMaxValue / 200, 0.01) : 1
-	);
+	const flowSliderStep = $derived(flowMaxValue > 0 ? Math.max(flowMaxValue / 200, 0.01) : 1);
 
 	// Geo selectors driven by current scale.
 	const geoMain = $derived(manifest?.geo?.[selection.scale]);
@@ -207,10 +186,7 @@
 					lineColor={cartography.lineColor}
 					lineWidth={cartography.lineWidth}
 				/>
-				<LassoTool
-					active={lassoActive}
-					fillLayerId="choropleth-{selection.scale}-fill"
-				/>
+				<LassoTool active={lassoActive} fillLayerId="choropleth-{selection.scale}-fill" />
 			{/key}
 			{#if geoOverlay}
 				{#key overlay.scale}
@@ -261,7 +237,6 @@
 		>
 			{status}
 		</div>
-		<div class="status" class:busy={querying} class:err={error}>{status}</div>
 		{#if flowStatus}
 			<div class="status" class:busy={flowQuerying} class:err={flowError}>flow: {flowStatus}</div>
 		{/if}
@@ -289,7 +264,6 @@
 		<LayerCalculator {manifest} />
 	</Panel>
 
-	<Panel title="Cartography">
 	<Panel title="Flow data" open={false}>
 		{#if manifest}
 			<div class="stack">
@@ -330,8 +304,6 @@
 		</div>
 	</Panel>
 
-	<Panel title="Study area" open={false}>
-		<StudyAreaControls bind:lassoActive />
 	<Panel title="Flow cartography" open={false}>
 		<div class="stack">
 			<ClassificationControls target={flowCartography} />
@@ -342,6 +314,10 @@
 				<Legend breaks={flowBreaks} colors={flowColors} />
 			{/if}
 		</div>
+	</Panel>
+
+	<Panel title="Study area" open={false}>
+		<StudyAreaControls bind:lassoActive />
 	</Panel>
 
 	<Panel title="Boundary overlay" open={false}>

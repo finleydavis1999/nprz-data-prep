@@ -21,13 +21,14 @@ test.describe.serial('app', () => {
 		await expect(page.locator('.brand')).toContainText('NPRZ');
 		await expect(page.locator('.status').first()).toContainText(/PC4s|gemeenten/);
 		const titles = await page.locator('details.panel summary').allTextContents();
-		expect(titles).toEqual(['Scale', 'Data', 'Cartography', 'Study area', 'Boundary overlay']);
 		expect(titles).toEqual([
 			'Scale',
 			'Node data',
+			'Layers',
 			'Flow data',
 			'Node cartography',
 			'Flow cartography',
+			'Study area',
 			'Boundary overlay'
 		]);
 
