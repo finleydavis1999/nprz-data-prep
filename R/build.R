@@ -14,9 +14,8 @@ source("R/_manifest.R")
 source("R/geo/pc4.R")
 source("R/geo/gemeenten.R")
 source("R/nodes/demographics.R")
-# Phase 1 follow-ups (scaffolded later):
-# source("R/nodes/banen-werk.R")
-# source("R/nodes/banen-woon.R")
+source("R/nodes/banen-werk.R")
+source("R/nodes/banen-woon.R")
 
 cat("=== building geo ===\n")
 geo <- list(
@@ -26,7 +25,9 @@ geo <- list(
 
 cat("\n=== building node datasets ===\n")
 datasets <- list(
-  demographics = build_demographics()
+  demographics = build_demographics(),
+  `banen-werk` = build_banen_werk(),
+  `banen-woon` = build_banen_woon()
 )
 
 cat("\n=== writing manifest ===\n")
