@@ -64,7 +64,9 @@
 		return { items, max };
 	});
 
-	let projected = $state(/** @type {Array<{ code: string, x: number, y: number, inflow: number, outflow: number, total: number, name: string, primary: boolean }>} */ ([]));
+	let projected = $state(
+		/** @type {Array<{ code: string, x: number, y: number, inflow: number, outflow: number, total: number, name: string, primary: boolean }>} */ ([])
+	);
 
 	/** @type {string | null} */
 	let hoveredCode = $state(null);
@@ -167,7 +169,10 @@
 					aria-label="{p.name}: in {fmt(p.inflow)}, out {fmt(p.outflow)}"
 				>
 					{#if p.inflow > 0 && p.outflow > 0}
-						<path d={pieSlicePath(p.x, p.y, r, -Math.PI / 2, -Math.PI / 2 + inAngle)} fill={inflowColor} />
+						<path
+							d={pieSlicePath(p.x, p.y, r, -Math.PI / 2, -Math.PI / 2 + inAngle)}
+							fill={inflowColor}
+						/>
 						<path
 							d={pieSlicePath(p.x, p.y, r, -Math.PI / 2 + inAngle, -Math.PI / 2 + Math.PI * 2)}
 							fill={outflowColor}
@@ -179,7 +184,15 @@
 					{/if}
 					<circle cx={p.x} cy={p.y} {r} fill="none" stroke="#fff" stroke-width="1.5" />
 					{#if p.primary}
-						<circle cx={p.x} cy={p.y} {r} fill="none" stroke="#1f2328" stroke-width="2" stroke-dasharray="3 2" />
+						<circle
+							cx={p.x}
+							cy={p.y}
+							{r}
+							fill="none"
+							stroke="#1f2328"
+							stroke-width="2"
+							stroke-dasharray="3 2"
+						/>
 					{/if}
 					<text class="label" x={p.x + r + 4} y={p.y + 4}>{p.name}</text>
 				</g>
@@ -187,14 +200,26 @@
 		</svg>
 		{#if hoveredItem}
 			{@const r = radiusFor(hoveredItem.total)}
-			<div class="tooltip" style:left="{hoveredItem.x + r + 8}px" style:top="{hoveredItem.y - 28}px">
+			<div
+				class="tooltip"
+				style:left="{hoveredItem.x + r + 8}px"
+				style:top="{hoveredItem.y - 28}px"
+			>
 				<div class="tt-name">{hoveredItem.name}{hoveredItem.primary ? ' — selected' : ''}</div>
 				{#if hoveredItem.primary}
-					<div class="tt-row" style:color={inflowColor}>Total inflow: {fmt(hoveredItem.inflow)}</div>
-					<div class="tt-row" style:color={outflowColor}>Total outflow: {fmt(hoveredItem.outflow)}</div>
+					<div class="tt-row" style:color={inflowColor}>
+						Total inflow: {fmt(hoveredItem.inflow)}
+					</div>
+					<div class="tt-row" style:color={outflowColor}>
+						Total outflow: {fmt(hoveredItem.outflow)}
+					</div>
 				{:else}
-					<div class="tt-row" style:color={inflowColor}>{selectedName} → {hoveredItem.name}: {fmt(hoveredItem.inflow)}</div>
-					<div class="tt-row" style:color={outflowColor}>{hoveredItem.name} → {selectedName}: {fmt(hoveredItem.outflow)}</div>
+					<div class="tt-row" style:color={inflowColor}>
+						{selectedName} → {hoveredItem.name}: {fmt(hoveredItem.inflow)}
+					</div>
+					<div class="tt-row" style:color={outflowColor}>
+						{hoveredItem.name} → {selectedName}: {fmt(hoveredItem.outflow)}
+					</div>
 				{/if}
 			</div>
 		{/if}

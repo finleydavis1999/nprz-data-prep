@@ -51,7 +51,9 @@
 		<div class="row">
 			<span class="badge node">{nodeScale === 'gem' ? 'gemeente' : nodeScale}</span>
 			<span class="name">{name}</span>
-			{#if pinned}<span class="pin" title="Pinned (click empty space or press Esc to clear)">📌</span>{/if}
+			{#if pinned}<span class="pin" title="Pinned (click empty space or press Esc to clear)"
+					>📌</span
+				>{/if}
 		</div>
 		{#if name !== target.id}
 			<code class="meta id">{target.id}</code>

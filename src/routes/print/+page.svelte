@@ -35,7 +35,9 @@
 	const colors = $derived(breaks ? paletteColors(cartography.palette, cartography.n) : []);
 
 	// --- Flow side mirrors `/` route. Re-runs whenever flow state changes.
-	let flowResult = $state(/** @type {{flows:{o:string,d:string,value:number}[], min:number, max:number} | null} */ (null));
+	let flowResult = $state(
+		/** @type {{flows:{o:string,d:string,value:number}[], min:number, max:number} | null} */ (null)
+	);
 	let centroids = $state(/** @type {Record<string, [number,number]> | null} */ (null));
 
 	onMount(() => {

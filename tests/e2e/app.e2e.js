@@ -49,9 +49,7 @@ test.describe('app', () => {
 		await expect(page.locator('.status').first()).toContainText(/PC4s|gemeenten/);
 
 		// Left sidebar: data inputs.
-		const leftTitles = await page
-			.locator('.sidebar-left details.panel summary')
-			.allTextContents();
+		const leftTitles = await page.locator('.sidebar-left details.panel summary').allTextContents();
 		expect(leftTitles).toEqual(['Scale', 'Node data', 'Flow data', 'Boundary overlay']);
 
 		// Right sidebar: inspect + cartography.
@@ -147,9 +145,7 @@ test.describe('app', () => {
 			has: page.locator('summary', { hasText: /^Node cartography$/ })
 		});
 		const before = await cartoPanel.locator('.legend .label').allTextContents();
-		const methodSelect = cartoPanel
-			.locator('label.field', { hasText: 'Method' })
-			.locator('select');
+		const methodSelect = cartoPanel.locator('label.field', { hasText: 'Method' }).locator('select');
 		await methodSelect.selectOption({ label: 'Quantile' });
 		await page.waitForTimeout(400);
 		const after = await cartoPanel.locator('.legend .label').allTextContents();

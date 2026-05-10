@@ -1,0 +1,14 @@
+#!/bin/sh
+# Mirrors the GitLab `lint` job — fails fast locally so formatting / ESLint
+# issues are caught before push instead of in CI.
+#
+# Wired up automatically by the `prepare` npm script
+# (`git config core.hooksPath .githooks`). Bypass with `git commit --no-verify`
+# only if you know what you're doing.
+
+if ! command -v npm >/dev/null 2>&1; then
+	echo "pre-commit: npm not found on PATH, skipping lint" >&2
+	exit 0
+fi
+
+npm run lint

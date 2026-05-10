@@ -5,7 +5,11 @@
 import { getDb } from './duckdb.js';
 import { ensureRegistered, num, valueExpr } from './parquet-register.js';
 
-function buildSql(parquetName, valueSql, { yearMin, yearMax, filters = {}, includeSelfLoops, yearRange }) {
+function buildSql(
+	parquetName,
+	valueSql,
+	{ yearMin, yearMax, filters = {}, includeSelfLoops, yearRange }
+) {
 	const wheres = [];
 	if (yearRange) wheres.push(`year BETWEEN ${num(yearMin)} AND ${num(yearMax)}`);
 	for (const [field, values] of Object.entries(filters)) {

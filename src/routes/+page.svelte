@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
-	import { base, resolve } from '$app/paths';
+	import { base } from '$app/paths';
 	import { PUBLIC_PROTOMAPS_API_KEY } from '$env/static/public';
 	import MapView from '$lib/map/Map.svelte';
 	import ChoroplethLayer from '$lib/map/ChoroplethLayer.svelte';
@@ -65,13 +65,13 @@
 	});
 
 	// Whether the current flow dataset has data at the active scale.
-	const flowScaleAvailable = $derived(
-		!!manifest?.flows?.[flow.dataset]?.scales?.[selection.scale]
-	);
+	const flowScaleAvailable = $derived(!!manifest?.flows?.[flow.dataset]?.scales?.[selection.scale]);
 
 	// Centroids cache keyed by scale so flow-scale switches don't re-fetch
 	// repeatedly. Populated lazily on first use of each scale.
-	let centroidsByScale = $state(/** @type {Record<string, Record<string, [number,number]>>} */ ({}));
+	let centroidsByScale = $state(
+		/** @type {Record<string, Record<string, [number,number]>>} */ ({})
+	);
 	const centroids = $derived(centroidsByScale[flow.scale] ?? null);
 	let flowResult = $state(
 		/** @type {{flows:{o:string,d:string,value:number}[], min:number, max:number} | null} */ (null)

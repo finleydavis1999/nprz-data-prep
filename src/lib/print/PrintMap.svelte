@@ -231,7 +231,7 @@
 			{/each}
 		</g>
 		{#if effectiveFlows.length > 0 && flowBreaks}
-			<g class="flows" opacity={opacity}>
+			<g class="flows" {opacity}>
 				{#each [...effectiveFlows].sort((a, b) => b.value - a.value) as f, i (`${f.o}|${f.d}|${i}`)}
 					{@const d = flowPath(f.o, f.d)}
 					{#if d}
@@ -290,7 +290,15 @@
 					{/if}
 					<circle cx={p.x} cy={p.y} {r} fill="none" stroke="#fff" stroke-width="1.5" />
 					{#if p.primary}
-						<circle cx={p.x} cy={p.y} {r} fill="none" stroke="#1f2328" stroke-width="2" stroke-dasharray="3 2" />
+						<circle
+							cx={p.x}
+							cy={p.y}
+							{r}
+							fill="none"
+							stroke="#1f2328"
+							stroke-width="2"
+							stroke-dasharray="3 2"
+						/>
 					{/if}
 					<text class="pie-label" x={p.x + r + 4} y={p.y + 4}>{p.name}</text>
 				{/each}

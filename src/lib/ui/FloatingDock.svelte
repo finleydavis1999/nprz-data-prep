@@ -2,16 +2,7 @@
 	// A draggable floating panel. Position is owned by the parent so it can be
 	// persisted to localStorage. Header drag moves the dock; close button calls
 	// onClose. Clamps to the viewport so a dock can't be dragged out of reach.
-	let {
-		title,
-		open = false,
-		x = 360,
-		y = 24,
-		width = 320,
-		onClose,
-		onMove,
-		children
-	} = $props();
+	let { title, open = false, x = 360, y = 24, width = 320, onClose, onMove, children } = $props();
 
 	let dragging = $state(false);
 	let dragOffsetX = 0;

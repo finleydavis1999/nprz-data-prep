@@ -88,9 +88,7 @@
 				cur &&
 				target &&
 				cur.kind === target.kind &&
-				(cur.kind === 'node'
-					? cur.id === target.id
-					: cur.o === target.o && cur.d === target.d);
+				(cur.kind === 'node' ? cur.id === target.id : cur.o === target.o && cur.d === target.d);
 			if (sameAsCurrent) {
 				ui.selected = null;
 				ui.selectedFlowNode = null;

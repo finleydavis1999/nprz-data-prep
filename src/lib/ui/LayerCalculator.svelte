@@ -235,7 +235,7 @@
 						{isActive ? '●' : '○'}
 					</button>
 					<span class="kind" title="{layer.domain ?? 'node'} {layer.kind}"
-						>{layer.kind === 'calc' ? 'ƒ' : (layer.domain === 'flow' ? '~' : '◆')}</span
+						>{layer.kind === 'calc' ? 'ƒ' : layer.domain === 'flow' ? '~' : '◆'}</span
 					>
 					<button
 						type="button"
@@ -273,7 +273,11 @@
 								{#if layer.domain === 'flow'}
 									<div class="line">
 										<span class="k">Years</span>
-										<span>{layer.yearMin === layer.yearMax ? layer.yearMin : `${layer.yearMin}–${layer.yearMax}`}</span>
+										<span
+											>{layer.yearMin === layer.yearMax
+												? layer.yearMin
+												: `${layer.yearMin}–${layer.yearMax}`}</span
+										>
 									</div>
 								{:else}
 									<div class="line"><span class="k">Year</span><span>{layer.year}</span></div>
@@ -353,7 +357,11 @@
 		</Field>
 		{#if calcDomain === 'node' && flowLayers.length > 0}
 			<Field label="Flow as">
-				<select bind:value={flowAgg} class="agg-select" title="Aggregator used when inserting a flow layer">
+				<select
+					bind:value={flowAgg}
+					class="agg-select"
+					title="Aggregator used when inserting a flow layer"
+				>
 					<option value="inflow">inflow( )</option>
 					<option value="outflow">outflow( )</option>
 					<option value="net">net( )</option>
@@ -388,7 +396,10 @@
 			{/if}
 			{#if flowLayers.length > 0}
 				<div class="palette-group">
-					<div class="palette-head">Flow layers{#if calcDomain === 'node'} <span class="muted">— wrapped with {flowAgg}( )</span>{/if}</div>
+					<div class="palette-head">
+						Flow layers{#if calcDomain === 'node'}
+							<span class="muted">— wrapped with {flowAgg}( )</span>{/if}
+					</div>
 					<div class="palette" aria-label="Available flow layers — click to insert">
 						{#each flowLayers as l (l.id)}
 							<button
@@ -399,9 +410,7 @@
 								ondragstart={(e) => onChipDragStart(e, l.slug)}
 								ondragend={onChipDragEnd}
 								onclick={() => insertChipAtCaret(l.slug)}
-								title={calcDomain === 'node'
-									? `Inserts ${flowAgg}(${l.slug})`
-									: 'Click to insert'}
+								title={calcDomain === 'node' ? `Inserts ${flowAgg}(${l.slug})` : 'Click to insert'}
 							>
 								<span class="chip-kind">{l.kind === 'calc' ? 'ƒ' : '~'}</span>
 								<span class="chip-slug">{l.slug}</span>
