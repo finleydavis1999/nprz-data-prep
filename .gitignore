@@ -25,3 +25,7 @@ vite.config.ts.timestamp-*
 test-results
 # SQLite
 *.db
+
+# Generated data (rebuild with `npm run data`)
+/static/data/
+/raw-data

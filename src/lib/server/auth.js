@@ -1,16 +1,17 @@
-import { betterAuth } from 'better-auth/minimal';
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { betterAuth } from 'better-auth';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
-import { db } from '$lib/server/db';
+import Database from 'better-sqlite3';
+
+const db = new Database(env.DATABASE_URL ?? 'local.db');
 
 export const auth = betterAuth({
 	baseURL: env.ORIGIN,
 	secret: env.BETTER_AUTH_SECRET,
-	database: drizzleAdapter(db, { provider: 'sqlite' }),
+	database: db,
 	emailAndPassword: { enabled: true },
 	plugins: [
-		sveltekitCookies(getRequestEvent) // make sure this is the last plugin in the array
+		sveltekitCookies(getRequestEvent)
 	]
 });
