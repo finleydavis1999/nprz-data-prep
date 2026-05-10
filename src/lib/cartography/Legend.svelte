@@ -4,7 +4,7 @@
 
 <div class="legend">
 	{#if title}<div class="title">{title}</div>{/if}
-	{#each colors as color, i}
+	{#each colors as color, i (i)}
 		<div class="row">
 			<span class="swatch" style="background: {color}"></span>
 			<span class="label">{format(breaks[i])} – {format(breaks[i + 1])}</span>

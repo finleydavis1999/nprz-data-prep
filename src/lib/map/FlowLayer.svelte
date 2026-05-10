@@ -65,15 +65,7 @@
 		if (!colors || colors.length === 0) return widthMin * 2;
 		const n = colors.length;
 		if (n === 1) return widthMax * 2;
-		return [
-			'interpolate',
-			['linear'],
-			['get', 'classIdx'],
-			0,
-			widthMin * 2.5,
-			n - 1,
-			widthMax * 2
-		];
+		return ['interpolate', ['linear'], ['get', 'classIdx'], 0, widthMin * 2.5, n - 1, widthMax * 2];
 	});
 
 	const casingOpacity = $derived(Math.min(1, opacity * 0.5));

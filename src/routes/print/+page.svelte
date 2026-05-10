@@ -1,4 +1,5 @@
 <script>
+	import { base, resolve } from '$app/paths';
 	import PrintMap from '$lib/print/PrintMap.svelte';
 	import Legend from '$lib/cartography/Legend.svelte';
 	import { downloadSvg } from '$lib/print/export.js';
@@ -51,7 +52,7 @@
 
 <div class="page">
 	<header class="toolbar">
-		<a class="back" href="/">← Back to map</a>
+		<a class="back" href={resolve('/')}>← Back to map</a>
 		<input class="title-input" type="text" placeholder={defaultTitle} bind:value={title} />
 		<div class="grow"></div>
 		<button type="button" onclick={onDownload}>Download SVG</button>
@@ -63,7 +64,7 @@
 		<div class="map" bind:this={mapWrap}>
 			{#if geo && breaks}
 				<PrintMap
-					topojsonUrl="/data/{geo.topojson}"
+					topojsonUrl="{base}/data/{geo.topojson}"
 					valueByArea={displayed.data}
 					{breaks}
 					{colors}

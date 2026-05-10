@@ -5,7 +5,11 @@
 // `curvature` 0 → straight line; 0.2 → gentle arc; >0.5 looks loopy.
 // All flows curve the same direction (CCW) so parallel OD pairs separate.
 export function bezierLine([lon1, lat1], [lon2, lat2], { curvature = 0.2, segments = 24 } = {}) {
-	if (curvature === 0 || segments <= 1) return [[lon1, lat1], [lon2, lat2]];
+	if (curvature === 0 || segments <= 1)
+		return [
+			[lon1, lat1],
+			[lon2, lat2]
+		];
 	const dx = lon2 - lon1;
 	const dy = lat2 - lat1;
 	const mx = (lon1 + lon2) / 2;

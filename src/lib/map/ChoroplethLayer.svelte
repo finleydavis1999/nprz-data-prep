@@ -109,12 +109,7 @@
 		if (!map || !installed) return;
 		const hasSelection = selectedIds.size > 0;
 		const fillOpacityPaint = hasSelection
-			? [
-					'case',
-					['==', ['feature-state', 'selected'], true],
-					fillOpacity,
-					fillOpacity * 0.25
-				]
+			? ['case', ['==', ['feature-state', 'selected'], true], fillOpacity, fillOpacity * 0.25]
 			: fillOpacity;
 		const lineWidthPaint = hasSelection
 			? ['case', ['==', ['feature-state', 'selected'], true], lineWidth * 3, lineWidth]

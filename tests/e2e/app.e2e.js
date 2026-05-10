@@ -40,11 +40,15 @@ test.describe.serial('app', () => {
 		// Open Flow data panel and tick the enable checkbox.
 		const flowPanel = page.locator('details.panel', { hasText: 'Flow data' });
 		await flowPanel.locator('summary').click();
-		const enable = flowPanel.locator('label.field', { hasText: 'Show flows' }).locator('input[type="checkbox"]');
+		const enable = flowPanel
+			.locator('label.field', { hasText: 'Show flows' })
+			.locator('input[type="checkbox"]');
 		await enable.check();
 
 		// Status row for flows appears with a positive feature count.
-		await expect(page.locator('.status').nth(1)).toContainText(/flow:.*flows/i, { timeout: 15_000 });
+		await expect(page.locator('.status').nth(1)).toContainText(/flow:.*flows/i, {
+			timeout: 15_000
+		});
 		await expect(page.locator('.status').nth(1)).not.toContainText('querying', { timeout: 15_000 });
 
 		// Wait for source data to settle, then assert layer + features exist.

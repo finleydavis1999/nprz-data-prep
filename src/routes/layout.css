@@ -6,8 +6,7 @@
    @theme block. Consumed both by Tailwind utilities and by component <style>
    blocks. Single source of truth for typography, color, spacing, radius. */
 @theme {
-	--font-sans:
-		system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+	--font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
 	/* Type scale: xs for tiny meta (axis labels, chip text), sm for secondary
 	   labels, base for body. */

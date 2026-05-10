@@ -11,7 +11,5 @@ export const auth = betterAuth({
 	secret: env.BETTER_AUTH_SECRET,
 	database: db,
 	emailAndPassword: { enabled: true },
-	plugins: [
-		sveltekitCookies(getRequestEvent)
-	]
+	plugins: [sveltekitCookies(getRequestEvent)]
 });

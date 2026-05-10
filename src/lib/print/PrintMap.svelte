@@ -33,9 +33,7 @@
 
 	// Derive objectKey from the URL when not explicitly given.
 	// `geo/pc4.topo.json` → `pc4`. The R pipeline writes the same key.
-	const resolvedKey = $derived(
-		objectKey ?? topojsonUrl.split('/').pop()?.split('.')[0] ?? null
-	);
+	const resolvedKey = $derived(objectKey ?? topojsonUrl.split('/').pop()?.split('.')[0] ?? null);
 
 	let topo = $state(null);
 	let topoError = $state(/** @type {string | null} */ (null));

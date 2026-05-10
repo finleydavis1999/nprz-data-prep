@@ -10,12 +10,7 @@
 <div class="seg">
 	{#each scales as s (s.id)}
 		<label class:active={selection.scale === s.id}>
-			<input
-				type="radio"
-				name="scale"
-				value={s.id}
-				bind:group={selection.scale}
-			/>
+			<input type="radio" name="scale" value={s.id} bind:group={selection.scale} />
 			{s.label}
 		</label>
 	{/each}

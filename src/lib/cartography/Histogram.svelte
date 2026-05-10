@@ -1,13 +1,7 @@
 <script>
 	import { Plot, RectY, AxisX, AxisY } from 'svelteplot';
 
-	let {
-		values = [],
-		breaks = null,
-		colors = [],
-		nBins = 30,
-		height = 130
-	} = $props();
+	let { values = [], breaks = null, colors = [], nBins = 30, height = 130 } = $props();
 
 	// For each bin, fill = color of the class its midpoint falls into.
 	function classIndex(v) {

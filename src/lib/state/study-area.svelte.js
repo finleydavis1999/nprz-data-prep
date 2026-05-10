@@ -1,3 +1,5 @@
+import { SvelteSet } from 'svelte/reactivity';
+
 // Singleton study-area state — a set of area_codes selected via the lasso tool
 // (or pasted in). Persisted to localStorage so it survives reloads. Future
 // flow-map filtering will read `studyArea.ids` to restrict origins/destinations.
@@ -27,7 +29,7 @@ function writeJSON(key, value) {
 }
 
 class StudyAreaState {
-	ids = $state(new Set());
+	ids = $state(new SvelteSet());
 	scale = $state(/** @type {'pc4' | 'gem' | null} */ (null));
 	saved = $state(/** @type {Record<string, { scale: string, ids: string[] }>} */ ({}));
 	#hydrated = false;
@@ -37,7 +39,7 @@ class StudyAreaState {
 		this.#hydrated = true;
 		const current = readJSON(KEY_CURRENT);
 		if (current && Array.isArray(current.ids)) {
-			this.ids = new Set(current.ids.map(String));
+			this.ids = new SvelteSet(current.ids.map(String));
 			this.scale = current.scale ?? null;
 		}
 		const saved = readJSON(KEY_SAVED);
@@ -60,7 +62,7 @@ class StudyAreaState {
 	add(id) {
 		const s = String(id);
 		if (this.ids.has(s)) return;
-		const next = new Set(this.ids);
+		const next = new SvelteSet(this.ids);
 		next.add(s);
 		this.#assign(next);
 	}
@@ -68,14 +70,14 @@ class StudyAreaState {
 	remove(id) {
 		const s = String(id);
 		if (!this.ids.has(s)) return;
-		const next = new Set(this.ids);
+		const next = new SvelteSet(this.ids);
 		next.delete(s);
 		this.#assign(next);
 	}
 
 	toggle(id) {
 		const s = String(id);
-		const next = new Set(this.ids);
+		const next = new SvelteSet(this.ids);
 		if (next.has(s)) next.delete(s);
 		else next.add(s);
 		this.#assign(next);
@@ -83,21 +85,21 @@ class StudyAreaState {
 
 	clear() {
 		if (this.ids.size === 0) return;
-		this.#assign(new Set());
+		this.#assign(new SvelteSet());
 	}
 
 	replace(idList) {
-		this.#assign(new Set([...idList].map(String)));
+		this.#assign(new SvelteSet([...idList].map(String)));
 	}
 
 	addMany(idList) {
-		const next = new Set(this.ids);
+		const next = new SvelteSet(this.ids);
 		for (const id of idList) next.add(String(id));
 		this.#assign(next);
 	}
 
 	removeMany(idList) {
-		const next = new Set(this.ids);
+		const next = new SvelteSet(this.ids);
 		for (const id of idList) next.delete(String(id));
 		this.#assign(next);
 	}
@@ -105,7 +107,7 @@ class StudyAreaState {
 	bindToScale(currentScale) {
 		if (this.scale === currentScale) return;
 		this.scale = currentScale;
-		if (this.ids.size > 0) this.#assign(new Set());
+		if (this.ids.size > 0) this.#assign(new SvelteSet());
 		else this.#persistCurrent();
 	}
 
@@ -126,7 +128,7 @@ class StudyAreaState {
 		if (entry.scale !== this.scale) {
 			return { ok: false, reason: 'scale-mismatch', expected: entry.scale, actual: this.scale };
 		}
-		this.#assign(new Set(entry.ids.map(String)));
+		this.#assign(new SvelteSet(entry.ids.map(String)));
 		return { ok: true };
 	}
 

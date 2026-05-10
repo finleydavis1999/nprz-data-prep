@@ -1,0 +1,89 @@
+default:
+  image: node:22
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+      - node_modules/
+
+stages:
+  - install
+  - lint
+  - test
+  - build
+  - deploy
+
+variables:
+  npm_config_cache: '$CI_PROJECT_DIR/.npm'
+
+install:
+  stage: install
+  script:
+    - npm ci --prefer-offline
+  artifacts:
+    paths:
+      - node_modules/
+    expire_in: 1 hour
+
+lint:
+  stage: lint
+  needs:
+    - install
+  script:
+    - npm run lint
+
+test:unit:
+  stage: test
+  needs:
+    - install
+  image: mcr.microsoft.com/playwright:v1.59.1-jammy
+  script:
+    - npm ci --prefer-offline
+    - npx playwright install --with-deps chromium
+    - npm run test:unit -- --run
+
+test:e2e:
+  stage: test
+  needs:
+    - install
+  image: mcr.microsoft.com/playwright:v1.59.1-jammy
+  script:
+    - npm ci --prefer-offline
+    - npx playwright install --with-deps chromium
+    - npm run test:e2e
+  artifacts:
+    when: on_failure
+    paths:
+      - test-results/
+    expire_in: 1 week
+
+build:
+  stage: build
+  needs:
+    - install
+  script:
+    # .env supplies AUTH_DISABLED, BETTER_AUTH_SECRET, DATABASE_URL, PUBLIC_PROTOMAPS_API_KEY.
+    # BASE_PATH is CI-specific so the assets resolve under /<project>/.
+    - export BASE_PATH="/$CI_PROJECT_NAME"
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+    expire_in: 1 day
+
+pages:
+  stage: deploy
+  needs:
+    - build
+    - lint
+    - test:unit
+    - test:e2e
+  script:
+    - mv build public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

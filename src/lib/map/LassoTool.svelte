@@ -1,5 +1,6 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { getMapContext } from './context.js';
 	import { studyArea } from '$lib/state/study-area.svelte.js';
 
@@ -54,8 +55,7 @@
 		for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
 			const [xi, yi] = ring[i];
 			const [xj, yj] = ring[j];
-			const intersect =
-				yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi + 0.0) + xi;
+			const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi + 0.0) + xi;
 			if (intersect) inside = !inside;
 		}
 		return inside;
@@ -106,7 +106,7 @@
 		];
 		const features = map.queryRenderedFeatures(pixelBox, { layers: [fillLayerId] });
 		const hits = [];
-		const seen = new Set();
+		const seen = new SvelteSet();
 		for (const f of features) {
 			const rep = representativePoint(f.geometry);
 			if (!rep) continue;
@@ -127,11 +127,7 @@
 		const map = ctx.map;
 		if (!map) return;
 		e.preventDefault();
-		modifier = e.originalEvent?.shiftKey
-			? 'add'
-			: e.originalEvent?.altKey
-				? 'subtract'
-				: 'replace';
+		modifier = e.originalEvent?.shiftKey ? 'add' : e.originalEvent?.altKey ? 'subtract' : 'replace';
 		map.dragPan.disable();
 		drawing = true;
 		coords = [[e.lngLat.lng, e.lngLat.lat]];

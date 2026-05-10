@@ -44,12 +44,7 @@
 <div class="filters">
 	<div class="filters-head">
 		<span class="filters-title">Filters</span>
-		<button
-			class="link"
-			type="button"
-			disabled={totalActive === 0}
-			onclick={clearAll}
-		>
+		<button class="link" type="button" disabled={totalActive === 0} onclick={clearAll}>
 			{totalActive > 0 ? `Reset (${totalActive})` : 'Reset'}
 		</button>
 	</div>

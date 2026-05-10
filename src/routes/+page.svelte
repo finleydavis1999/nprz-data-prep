@@ -1,5 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
+	import { base, resolve } from '$app/paths';
 	import { PUBLIC_PROTOMAPS_API_KEY } from '$env/static/public';
 	import MapView from '$lib/map/Map.svelte';
 	import ChoroplethLayer from '$lib/map/ChoroplethLayer.svelte';
@@ -38,7 +39,9 @@
 	const manifest = $derived(manifestState.data);
 
 	let centroids = $state(/** @type {Record<string, [number,number]> | null} */ (null));
-	let flowResult = $state(/** @type {{flows:{o:string,d:string,value:number}[], min:number, max:number} | null} */ (null));
+	let flowResult = $state(
+		/** @type {{flows:{o:string,d:string,value:number}[], min:number, max:number} | null} */ (null)
+	);
 	let flowQuerying = $state(false);
 	let flowError = $state(/** @type {string | null} */ (null));
 	// Auto-set minWeight to the ~70th percentile on the first non-empty flow
@@ -177,7 +180,7 @@
 			{#key selection.scale}
 				<ChoroplethLayer
 					sourceId="choropleth-{selection.scale}"
-					geoUrl="/data/{geoMain.geojson}"
+					geoUrl="{base}/data/{geoMain.geojson}"
 					promoteId={geoMain.idProp}
 					valueByArea={displayed.data}
 					selectedIds={studyArea.ids}
@@ -192,7 +195,7 @@
 				{#key overlay.scale}
 					<BoundaryLayer
 						sourceId="overlay-{overlay.scale}"
-						geoUrl="/data/{geoOverlay.geojson}"
+						geoUrl="{base}/data/{geoOverlay.geojson}"
 						promoteId={geoOverlay.idProp}
 						lineColor={overlay.color}
 						lineWidth={overlay.width}
@@ -222,7 +225,7 @@
 		<div class="brand-row">
 			<div class="brand">NPRZ <span class="brand-sub">analytics</span></div>
 			<div class="actions">
-				<a class="action" href="/print" title="Print preview">⎙</a>
+				<a class="action" href={resolve('/print')} title="Print preview">⎙</a>
 				{#if data.user}
 					<form method="POST" action="?/logout" class="logout-form">
 						<button type="submit" class="action" title="Sign out — {data.user.email}">↪</button>

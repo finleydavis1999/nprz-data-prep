@@ -12,8 +12,7 @@ node_modules
 .DS_Store
 Thumbs.db
 
-# Env
-.env
+# Env (.env contains only dev defaults, committed for CI; .env.local for personal overrides)
 .env.*
 !.env.example
 !.env.test
@@ -27,7 +26,7 @@ test-results
 *.db
 
 # Generated data (rebuild with `npm run data`)
-/static/data/
+# /static/data/ is committed for GitLab Pages deploy; rebuild locally with `npm run data` and commit changes
 /raw-data
 
 # Hardcoded users for `npm run users:seed` (commit only seed-users.json.example)

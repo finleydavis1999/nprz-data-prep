@@ -7,13 +7,7 @@
 	<form method="POST">
 		<label>
 			<span>Email</span>
-			<input
-				type="email"
-				name="email"
-				autocomplete="email"
-				required
-				value={form?.email ?? ''}
-			/>
+			<input type="email" name="email" autocomplete="email" required value={form?.email ?? ''} />
 		</label>
 		<label>
 			<span>Password</span>

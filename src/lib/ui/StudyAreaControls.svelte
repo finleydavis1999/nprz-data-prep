@@ -92,11 +92,7 @@
 	</div>
 
 	{#if pasteOpen}
-		<textarea
-			class="paste"
-			rows="4"
-			placeholder="One area_code per line"
-			bind:value={pasteText}
+		<textarea class="paste" rows="4" placeholder="One area_code per line" bind:value={pasteText}
 		></textarea>
 		<div class="actions">
 			<button type="button" onclick={applyPaste} disabled={!pasteText.trim()}>Apply</button>
@@ -126,12 +122,7 @@
 			{#each savedNames as name (name)}
 				{@const entry = studyArea.saved[name]}
 				<li>
-					<button
-						type="button"
-						class="load"
-						onclick={() => loadSet(name)}
-						title="Load {name}"
-					>
+					<button type="button" class="load" onclick={() => loadSet(name)} title="Load {name}">
 						<span class="name">{name}</span>
 						<span class="meta">{entry.ids.length} · {entry.scale.toUpperCase()}</span>
 					</button>

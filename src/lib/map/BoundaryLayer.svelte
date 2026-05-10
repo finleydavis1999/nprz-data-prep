@@ -50,9 +50,7 @@
 		// Source may be shared with a ChoroplethLayer using the same sourceId;
 		// only remove it if no other layer references it.
 		if (map.getSource(sourceId)) {
-			const referenced = map
-				.getStyle()
-				.layers.some((l) => l.source === sourceId);
+			const referenced = map.getStyle().layers.some((l) => l.source === sourceId);
 			if (!referenced) map.removeSource(sourceId);
 		}
 	});
