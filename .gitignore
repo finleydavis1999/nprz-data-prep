@@ -31,3 +31,10 @@ test-results
 
 # Hardcoded users for `npm run users:seed` (commit only seed-users.json.example)
 /seed-users.json
+
+# Claude Code — keep team config (settings.json, commands/, agents/, skills/),
+# ignore per-user state.
+.claude/settings.local.json
+.claude/worktrees/
+.claude/plans/
+.claude/memory/

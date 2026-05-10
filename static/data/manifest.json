@@ -1,0 +1,828 @@
+{
+  "version": "2026-05-10T20:53:23Z",
+  "datasets": {
+    "demographics": {
+      "name": "Persoonsgegevens 2018",
+      "description": "CBS microdata 1999-2018, demographic person attributes. Cells <10 suppressed for privacy.",
+      "scales": {
+        "pc4": "parquet/demographics-pc4.parquet",
+        "gem": "parquet/demographics-gem.parquet"
+      },
+      "fields": {
+        "year": {
+          "type": "single",
+          "label": "Jaar",
+          "values": [
+            {
+              "id": 1999,
+              "label": "1999"
+            },
+            {
+              "id": 2000,
+              "label": "2000"
+            },
+            {
+              "id": 2001,
+              "label": "2001"
+            },
+            {
+              "id": 2002,
+              "label": "2002"
+            },
+            {
+              "id": 2003,
+              "label": "2003"
+            },
+            {
+              "id": 2004,
+              "label": "2004"
+            },
+            {
+              "id": 2005,
+              "label": "2005"
+            },
+            {
+              "id": 2006,
+              "label": "2006"
+            },
+            {
+              "id": 2007,
+              "label": "2007"
+            },
+            {
+              "id": 2008,
+              "label": "2008"
+            },
+            {
+              "id": 2009,
+              "label": "2009"
+            },
+            {
+              "id": 2010,
+              "label": "2010"
+            },
+            {
+              "id": 2011,
+              "label": "2011"
+            },
+            {
+              "id": 2012,
+              "label": "2012"
+            },
+            {
+              "id": 2013,
+              "label": "2013"
+            },
+            {
+              "id": 2014,
+              "label": "2014"
+            },
+            {
+              "id": 2015,
+              "label": "2015"
+            },
+            {
+              "id": 2016,
+              "label": "2016"
+            },
+            {
+              "id": 2017,
+              "label": "2017"
+            },
+            {
+              "id": 2018,
+              "label": "2018"
+            }
+          ],
+          "default": 2018,
+          "min": 1999,
+          "max": 2018
+        },
+        "age": {
+          "type": "multi",
+          "label": "Leeftijd",
+          "values": [
+            {
+              "id": 1,
+              "label": "12-18"
+            },
+            {
+              "id": 2,
+              "label": "18-23"
+            },
+            {
+              "id": 3,
+              "label": "24-29"
+            },
+            {
+              "id": 4,
+              "label": "30-40"
+            },
+            {
+              "id": 5,
+              "label": "40-59"
+            },
+            {
+              "id": 6,
+              "label": "60+"
+            }
+          ]
+        },
+        "sec": {
+          "type": "multi",
+          "label": "Sociaal-Economische Positie",
+          "values": [
+            {
+              "id": 1,
+              "label": "Actief (werkend, DGA, zelfstand of overig actief)"
+            },
+            {
+              "id": 2,
+              "label": "Ontvanger uitkering (excl. pensioen)"
+            },
+            {
+              "id": 3,
+              "label": "Pensioen"
+            },
+            {
+              "id": 4,
+              "label": "Scholier/student"
+            }
+          ]
+        },
+        "hh": {
+          "type": "multi",
+          "label": "Huishoudtype",
+          "values": [
+            {
+              "id": 1,
+              "label": "Eenpersoonshuishouden"
+            },
+            {
+              "id": 2,
+              "label": "Paar zonder kinderen"
+            },
+            {
+              "id": 3,
+              "label": "1-ouder met kinderen"
+            },
+            {
+              "id": 4,
+              "label": "Overig"
+            }
+          ]
+        },
+        "opl": {
+          "type": "multi",
+          "label": "Opleiding",
+          "values": [
+            {
+              "id": 1,
+              "label": "Laag (SOI2006 < 40)"
+            },
+            {
+              "id": 2,
+              "label": "Midden (SOI2006 39-50)"
+            },
+            {
+              "id": 3,
+              "label": "Hoog (SOI2006 > 60)"
+            }
+          ]
+        },
+        "inks": {
+          "type": "multi",
+          "label": "Brutoinkomen",
+          "values": [
+            {
+              "id": 1,
+              "label": "< 20%"
+            },
+            {
+              "id": 2,
+              "label": "20-40%"
+            },
+            {
+              "id": 3,
+              "label": "40-60%"
+            },
+            {
+              "id": 4,
+              "label": "60-80%"
+            },
+            {
+              "id": 5,
+              "label": "80-100%"
+            }
+          ]
+        }
+      },
+      "countCol": "count",
+      "weightCol": "weight",
+      "yearAggregation": "sum",
+      "defaultClassification": {
+        "method": "jenks",
+        "n": 5,
+        "palette": "YlOrRd"
+      }
+    },
+    "banen-werk": {
+      "name": "Baangegevens Werkadres",
+      "description": "CBS microdata 2007-2017, banen geteld op werkadres. Cellen <10 onderdrukt voor privacy.",
+      "scales": {
+        "pc4": "parquet/banen-werk-pc4.parquet",
+        "gem": "parquet/banen-werk-gem.parquet"
+      },
+      "fields": {
+        "year": {
+          "type": "single",
+          "label": "Jaar",
+          "values": [
+            {
+              "id": 2007,
+              "label": "2007"
+            },
+            {
+              "id": 2008,
+              "label": "2008"
+            },
+            {
+              "id": 2009,
+              "label": "2009"
+            },
+            {
+              "id": 2010,
+              "label": "2010"
+            },
+            {
+              "id": 2011,
+              "label": "2011"
+            },
+            {
+              "id": 2012,
+              "label": "2012"
+            },
+            {
+              "id": 2013,
+              "label": "2013"
+            },
+            {
+              "id": 2014,
+              "label": "2014"
+            },
+            {
+              "id": 2015,
+              "label": "2015"
+            },
+            {
+              "id": 2016,
+              "label": "2016"
+            },
+            {
+              "id": 2017,
+              "label": "2017"
+            }
+          ],
+          "default": 2017
+        },
+        "age": {
+          "type": "multi",
+          "label": "Leeftijd",
+          "values": [
+            {
+              "id": 1,
+              "label": "jonger dan 18"
+            },
+            {
+              "id": 2,
+              "label": "18-23"
+            },
+            {
+              "id": 3,
+              "label": "24-29"
+            },
+            {
+              "id": 4,
+              "label": "30-40"
+            },
+            {
+              "id": 5,
+              "label": "40-59"
+            },
+            {
+              "id": 6,
+              "label": "60+"
+            }
+          ]
+        },
+        "opl": {
+          "type": "multi",
+          "label": "Opleiding",
+          "values": [
+            {
+              "id": 1,
+              "label": "Laag (SOI2006 < 40)"
+            },
+            {
+              "id": 2,
+              "label": "Midden (SOI2006 39-50)"
+            },
+            {
+              "id": 3,
+              "label": "Hoog (SOI2006 > 60)"
+            }
+          ]
+        },
+        "inks": {
+          "type": "multi",
+          "label": "Brutoinkomen",
+          "values": [
+            {
+              "id": 1,
+              "label": "< 20%"
+            },
+            {
+              "id": 2,
+              "label": "20-40%"
+            },
+            {
+              "id": 3,
+              "label": "40-60%"
+            },
+            {
+              "id": 4,
+              "label": "60-80%"
+            },
+            {
+              "id": 5,
+              "label": "80-100%"
+            }
+          ]
+        },
+        "sectorcat": {
+          "type": "multi",
+          "label": "Sector",
+          "values": [
+            {
+              "id": 1,
+              "label": "Materiaalgericht: Productie"
+            },
+            {
+              "id": 2,
+              "label": "Materiaalgericht: Dienstverlening"
+            },
+            {
+              "id": 3,
+              "label": "Informatiegericht: Commercieel"
+            },
+            {
+              "id": 4,
+              "label": "Informatiegericht: Publiek (Quartair)"
+            },
+            {
+              "id": 5,
+              "label": "Persoonsgericht: Retail, Ambacht, Horeca & Vervoer"
+            },
+            {
+              "id": 6,
+              "label": "Persoonsgericht: Zorg, Onderwijs, Cultuur"
+            },
+            {
+              "id": 7,
+              "label": "Landbouw"
+            },
+            {
+              "id": 8,
+              "label": "Metaal- en maritieme industrie"
+            },
+            {
+              "id": 9,
+              "label": "Overig (uitzend & onbekend)"
+            }
+          ]
+        },
+        "soortbaan": {
+          "type": "multi",
+          "label": "Soort Baan",
+          "values": [
+            {
+              "id": 1,
+              "label": "DGA"
+            },
+            {
+              "id": 2,
+              "label": "Overig"
+            },
+            {
+              "id": 3,
+              "label": "Stagaire, WSW, Oproep, Uitzend"
+            }
+          ]
+        }
+      },
+      "countCol": "count",
+      "weightCol": "weight",
+      "defaultClassification": {
+        "method": "jenks",
+        "n": 5,
+        "palette": "YlOrRd"
+      }
+    },
+    "banen-woon": {
+      "name": "Baangegevens Woonadres",
+      "description": "CBS microdata 2007-2017, banen geteld op woonadres. Cellen <10 onderdrukt voor privacy.",
+      "scales": {
+        "pc4": "parquet/banen-woon-pc4.parquet",
+        "gem": "parquet/banen-woon-gem.parquet"
+      },
+      "fields": {
+        "year": {
+          "type": "single",
+          "label": "Jaar",
+          "values": [
+            {
+              "id": 2007,
+              "label": "2007"
+            },
+            {
+              "id": 2008,
+              "label": "2008"
+            },
+            {
+              "id": 2009,
+              "label": "2009"
+            },
+            {
+              "id": 2010,
+              "label": "2010"
+            },
+            {
+              "id": 2011,
+              "label": "2011"
+            },
+            {
+              "id": 2012,
+              "label": "2012"
+            },
+            {
+              "id": 2013,
+              "label": "2013"
+            },
+            {
+              "id": 2014,
+              "label": "2014"
+            },
+            {
+              "id": 2015,
+              "label": "2015"
+            },
+            {
+              "id": 2016,
+              "label": "2016"
+            },
+            {
+              "id": 2017,
+              "label": "2017"
+            }
+          ],
+          "default": 2017
+        },
+        "age": {
+          "type": "multi",
+          "label": "Leeftijd",
+          "values": [
+            {
+              "id": 1,
+              "label": "jonger dan 18"
+            },
+            {
+              "id": 2,
+              "label": "18-23"
+            },
+            {
+              "id": 3,
+              "label": "24-29"
+            },
+            {
+              "id": 4,
+              "label": "30-40"
+            },
+            {
+              "id": 5,
+              "label": "40-59"
+            },
+            {
+              "id": 6,
+              "label": "60+"
+            }
+          ]
+        },
+        "opl": {
+          "type": "multi",
+          "label": "Opleiding",
+          "values": [
+            {
+              "id": 1,
+              "label": "Laag (SOI2006 < 40)"
+            },
+            {
+              "id": 2,
+              "label": "Midden (SOI2006 39-50)"
+            },
+            {
+              "id": 3,
+              "label": "Hoog (SOI2006 > 60)"
+            }
+          ]
+        },
+        "inks": {
+          "type": "multi",
+          "label": "Brutoinkomen",
+          "values": [
+            {
+              "id": 1,
+              "label": "< 20%"
+            },
+            {
+              "id": 2,
+              "label": "20-40%"
+            },
+            {
+              "id": 3,
+              "label": "40-60%"
+            },
+            {
+              "id": 4,
+              "label": "60-80%"
+            },
+            {
+              "id": 5,
+              "label": "80-100%"
+            }
+          ]
+        },
+        "sectorcat": {
+          "type": "multi",
+          "label": "Sector",
+          "values": [
+            {
+              "id": 1,
+              "label": "Materiaalgericht: Productie"
+            },
+            {
+              "id": 2,
+              "label": "Materiaalgericht: Dienstverlening"
+            },
+            {
+              "id": 3,
+              "label": "Informatiegericht: Commercieel"
+            },
+            {
+              "id": 4,
+              "label": "Informatiegericht: Publiek (Quartair)"
+            },
+            {
+              "id": 5,
+              "label": "Persoonsgericht: Retail, Ambacht, Horeca & Vervoer"
+            },
+            {
+              "id": 6,
+              "label": "Persoonsgericht: Zorg, Onderwijs, Cultuur"
+            },
+            {
+              "id": 7,
+              "label": "Landbouw"
+            },
+            {
+              "id": 8,
+              "label": "Metaal- en maritieme industrie"
+            },
+            {
+              "id": 9,
+              "label": "Overig (uitzend & onbekend)"
+            }
+          ]
+        },
+        "soortbaan": {
+          "type": "multi",
+          "label": "Soort Baan",
+          "values": [
+            {
+              "id": 1,
+              "label": "DGA"
+            },
+            {
+              "id": 2,
+              "label": "Overig"
+            },
+            {
+              "id": 3,
+              "label": "Stagaire, WSW, Oproep, Uitzend"
+            }
+          ]
+        }
+      },
+      "countCol": "count",
+      "weightCol": "weight",
+      "defaultClassification": {
+        "method": "jenks",
+        "n": 5,
+        "palette": "YlOrRd"
+      }
+    }
+  },
+  "flows": {
+    "ovin": {
+      "name": "Verplaatsingen 2004-2022 (OViN)",
+      "description": "Onderzoek Verplaatsingen in Nederland 2004-2022. Per-trip records aggregated to herkomst-bestemming gemeenten. Tellingen = som van factorv (gewogen ritten over de gekozen periode).",
+      "scales": {
+        "gem": "parquet/ovin-edges-gem.parquet"
+      },
+      "fields": {
+        "year": {
+          "type": "range",
+          "label": "Periode",
+          "min": 2004,
+          "max": 2022,
+          "defaultMin": 2018,
+          "defaultMax": 2018
+        },
+        "motief": {
+          "type": "multi",
+          "label": "Motief",
+          "values": [
+            {
+              "id": 1,
+              "label": "Van en naar het werk"
+            },
+            {
+              "id": 2,
+              "label": "Zakelijk bezoek"
+            },
+            {
+              "id": 3,
+              "label": "Diensten/persoonlijke verzorging"
+            },
+            {
+              "id": 4,
+              "label": "Winkelen/boodschappen"
+            },
+            {
+              "id": 5,
+              "label": "Onderwijs volgen"
+            },
+            {
+              "id": 6,
+              "label": "Visite/logeren"
+            },
+            {
+              "id": 7,
+              "label": "Sociaal recreatief overig"
+            },
+            {
+              "id": 8,
+              "label": "Toeren/wandelen"
+            },
+            {
+              "id": 9,
+              "label": "Overig, incl. diensten/zorg"
+            }
+          ]
+        },
+        "modus": {
+          "type": "multi",
+          "label": "Modus",
+          "values": [
+            {
+              "id": 1,
+              "label": "Auto (bestuurder of passagier)"
+            },
+            {
+              "id": 2,
+              "label": "Trein, bus/tram/metro"
+            },
+            {
+              "id": 3,
+              "label": "Lopen, fiets, bromfiets"
+            },
+            {
+              "id": 4,
+              "label": "Overig"
+            }
+          ]
+        },
+        "opl": {
+          "type": "multi",
+          "label": "Opleiding",
+          "values": [
+            {
+              "id": 0,
+              "label": "Onbekend"
+            },
+            {
+              "id": 1,
+              "label": "BO/LO, LBO/VGLO/LAVO/MAVO/MULO"
+            },
+            {
+              "id": 2,
+              "label": "MBO/HAVO/Atheneum/Gymnasium/MMS/HBS"
+            },
+            {
+              "id": 3,
+              "label": "HBO/Universiteit"
+            },
+            {
+              "id": 4,
+              "label": "Overig"
+            }
+          ]
+        },
+        "hhtype": {
+          "type": "multi",
+          "label": "Huishoudtype",
+          "values": [
+            {
+              "id": 1,
+              "label": "Eenpersoonshuishouden"
+            },
+            {
+              "id": 2,
+              "label": "Paar zonder kinderen"
+            },
+            {
+              "id": 3,
+              "label": "Paar + kind(eren)"
+            },
+            {
+              "id": 4,
+              "label": "1-oudergezin"
+            },
+            {
+              "id": 5,
+              "label": "Overig"
+            }
+          ]
+        },
+        "maatsch": {
+          "type": "multi",
+          "label": "Maatschappelijke participatie",
+          "values": [
+            {
+              "id": 1,
+              "label": "Werkzaam 12-30 uur/week"
+            },
+            {
+              "id": 2,
+              "label": "Werkzaam >= 30 uur/week"
+            },
+            {
+              "id": 3,
+              "label": "Eigen huishouding"
+            },
+            {
+              "id": 4,
+              "label": "Scholier/student"
+            },
+            {
+              "id": 5,
+              "label": "Werkloos/WAO"
+            },
+            {
+              "id": 6,
+              "label": "Gepensioneerd/VUT"
+            },
+            {
+              "id": 7,
+              "label": "Overig"
+            },
+            {
+              "id": 8,
+              "label": "Nvt"
+            }
+          ]
+        }
+      },
+      "countCol": "count",
+      "weightCol": "weight",
+      "yearAggregation": "daily",
+      "defaultClassification": {
+        "method": "quantile",
+        "n": 5,
+        "palette": "YlOrRd"
+      }
+    }
+  },
+  "geo": {
+    "pc4": {
+      "geojson": "geo/pc4.geojson",
+      "topojson": "geo/pc4.topo.json",
+      "idProp": "area_code"
+    },
+    "gem": {
+      "geojson": "geo/gemeenten.geojson",
+      "topojson": "geo/gemeenten.topo.json",
+      "centroids": "geo/gem-centroids.json",
+      "idProp": "area_code"
+    }
+  }
+}
