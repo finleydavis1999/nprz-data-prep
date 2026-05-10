@@ -1,10 +1,11 @@
 # Assemble + write static/data/manifest.json from per-dataset / per-geo build results.
 suppressPackageStartupMessages(library(jsonlite))
 
-write_manifest <- function(datasets, geo) {
+write_manifest <- function(datasets, geo, flows = NULL) {
   manifest <- list(
     version  = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
     datasets = datasets,
+    flows    = if (is.null(flows)) list() else flows,
     geo      = geo
   )
   out <- "static/data/manifest.json"

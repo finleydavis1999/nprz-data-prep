@@ -16,6 +16,7 @@ source("R/geo/gemeenten.R")
 source("R/nodes/demographics.R")
 source("R/nodes/banen-werk.R")
 source("R/nodes/banen-woon.R")
+source("R/edges/ovin.R")
 
 cat("=== building geo ===\n")
 geo <- list(
@@ -30,6 +31,11 @@ datasets <- list(
   `banen-woon` = build_banen_woon()
 )
 
+cat("\n=== building flow datasets ===\n")
+flows <- list(
+  ovin = build_ovin()
+)
+
 cat("\n=== writing manifest ===\n")
-write_manifest(datasets, geo)
+write_manifest(datasets, geo, flows)
 cat("\nDone.\n")

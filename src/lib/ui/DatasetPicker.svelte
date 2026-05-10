@@ -2,10 +2,10 @@
 	import { selection } from '$lib/state/selection.svelte.js';
 	import Field from './Field.svelte';
 
-	let { manifest } = $props();
+	let { manifest, state = selection, section = 'datasets', label = 'Dataset' } = $props();
 
 	const options = $derived(
-		Object.entries(manifest?.datasets ?? {}).map(([id, ds]) => ({
+		Object.entries(manifest?.[section] ?? {}).map(([id, ds]) => ({
 			id,
 			label: ds.name ?? id
 		}))
@@ -26,8 +26,8 @@
 	}
 </script>
 
-<Field label="Dataset">
-	<select value={selection.dataset} onchange={onChange}>
+<Field {label}>
+	<select bind:value={state.dataset}>
 		{#each options as o (o.id)}
 			<option value={o.id}>{o.label}</option>
 		{/each}

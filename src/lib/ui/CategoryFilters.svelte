@@ -1,10 +1,10 @@
 <script>
 	import { selection } from '$lib/state/selection.svelte.js';
 
-	let { manifest } = $props();
+	let { manifest, state = selection, section = 'datasets' } = $props();
 
 	const fields = $derived.by(() => {
-		const ds = manifest?.datasets?.[selection.dataset];
+		const ds = manifest?.[section]?.[state.dataset];
 		if (!ds) return [];
 		return Object.entries(ds.fields)
 			.filter(([, f]) => f.type === 'multi')
@@ -12,32 +12,32 @@
 	});
 
 	const totalActive = $derived(
-		Object.values(selection.filters).reduce((n, v) => n + (v?.length ?? 0), 0)
+		Object.values(state.filters).reduce((n, v) => n + (v?.length ?? 0), 0)
 	);
 
 	function toggle(fieldId, valueId) {
-		const cur = selection.filters[fieldId] ?? [];
+		const cur = state.filters[fieldId] ?? [];
 		const has = cur.includes(valueId);
 		const next = has ? cur.filter((v) => v !== valueId) : [...cur, valueId];
-		selection.filters = { ...selection.filters, [fieldId]: next };
+		state.filters = { ...state.filters, [fieldId]: next };
 	}
 
 	function clearField(fieldId) {
-		const next = { ...selection.filters };
+		const next = { ...state.filters };
 		delete next[fieldId];
-		selection.filters = next;
+		state.filters = next;
 	}
 
 	function clearAll() {
-		selection.filters = {};
+		state.filters = {};
 	}
 
 	function isOn(fieldId, valueId) {
-		return (selection.filters[fieldId] ?? []).includes(valueId);
+		return (state.filters[fieldId] ?? []).includes(valueId);
 	}
 
 	function activeCount(fieldId) {
-		return (selection.filters[fieldId] ?? []).length;
+		return (state.filters[fieldId] ?? []).length;
 	}
 </script>
 

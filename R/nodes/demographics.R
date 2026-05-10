@@ -42,7 +42,8 @@ build_demographics <- function() {
       year = list(
         type = "single", label = "Jaar",
         values = lapply(1999:2018, function(y) list(id = y, label = as.character(y))),
-        default = 2018L
+        default = 2018L,
+        min = 1999L, max = 2018L
       ),
       age = list(
         type = "multi", label = "Leeftijd",
@@ -94,6 +95,8 @@ build_demographics <- function() {
     ),
     countCol  = "count",
     weightCol = "weight",
+    # Single-year selection only — no cross-year aggregation, so divisor = 1.
+    yearAggregation = "sum",
     defaultClassification = list(method = "jenks", n = 5L, palette = "YlOrRd")
   )
 }

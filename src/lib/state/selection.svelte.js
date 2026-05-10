@@ -1,6 +1,8 @@
-// Singleton selection state — what the user is currently mapping.
+// Singleton selection state — what the user is currently mapping (node side).
 // Read by `+page.svelte` to drive `runChoropleth(...)` and the legend/histogram.
 // Written by ScaleToggle, DatasetPicker, YearPicker, CategoryFilters.
+//
+// Node datasets are single-year only (manifest field `year.type === 'single'`).
 class SelectionState {
 	dataset = $state('demographics');
 	scale = $state('pc4');

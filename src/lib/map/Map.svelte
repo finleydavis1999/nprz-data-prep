@@ -30,11 +30,23 @@
 				: basemap.emptyStyle();
 
 		const map = new maplibregl.Map({ container, style, center, zoom });
+		// Expose for e2e tests; harmless in production.
+		if (typeof window !== 'undefined') window.__map = map;
 		map.addControl(new maplibregl.NavigationControl(), 'top-right');
-		map.on('load', () => {
+		// Resolve readiness whether `load` fires now or has already fired during
+		// the awaits above (race when the protomaps style resolves quickly).
+		let resolved = false;
+		const ready = () => {
+			if (resolved) return;
+			resolved = true;
 			ctx.map = map;
 			ctx.ready = true;
-		});
+		};
+		if (map.loaded()) ready();
+		else {
+			map.on('load', ready);
+			map.once('idle', ready);
+		}
 	});
 
 	onDestroy(() => {

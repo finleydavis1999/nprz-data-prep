@@ -1,21 +1,24 @@
 // Build a MapLibre paint expression from breaks + colors.
 //
 // `breaks` has length n+1 (boundaries); `colors` has length n.
-// Falls back to `nullColor` when feature-state value is null/missing.
-// The `step` expression maps:
-//   value < breaks[1]            -> colors[0]
-//   breaks[1] <= value < breaks[2] -> colors[1]
-//   …
-//   value >= breaks[n-1]         -> colors[n-1]
-export function stepExpression({ breaks, colors, nullColor = '#eee' }) {
+// `input` is the maplibre expression to read the value from; default is
+// ['feature-state', 'value'] (used by the choropleth). Pass ['get','value']
+// for layers that carry the value on geojson properties (e.g. flow lines).
+// Falls back to `nullColor` when the input value is null/missing.
+export function stepExpression({
+	breaks,
+	colors,
+	nullColor = '#eee',
+	input = ['feature-state', 'value']
+}) {
 	if (breaks.length !== colors.length + 1) {
 		throw new Error(
 			`stepExpression: expected breaks.length === colors.length + 1 (got ${breaks.length} vs ${colors.length})`
 		);
 	}
-	const step = ['step', ['feature-state', 'value'], colors[0]];
+	const step = ['step', input, colors[0]];
 	for (let i = 1; i < colors.length; i++) {
 		step.push(breaks[i], colors[i]);
 	}
-	return ['case', ['==', ['feature-state', 'value'], null], nullColor, step];
+	return ['case', ['==', input, null], nullColor, step];
 }

@@ -6,6 +6,7 @@
 suppressPackageStartupMessages({
   library(sf)
   library(dplyr)
+  library(jsonlite)
 })
 source("R/lib/geo.R")
 
@@ -21,9 +22,25 @@ build_gemeenten <- function() {
     keep_pct     = 15
   )
 
+  # Centroids (point-on-surface for safety with multi-part / coastal polygons)
+  # in EPSG:4326 — used by the flow layer to draw OD curves.
+  pts <- gem |>
+    sf::st_point_on_surface() |>
+    sf::st_transform(4326)
+  coords <- sf::st_coordinates(pts)
+  centroids <- setNames(
+    lapply(seq_len(nrow(coords)), function(i) c(coords[i, "X"], coords[i, "Y"])),
+    pts$area_code
+  )
+  out <- "static/data/geo/gem-centroids.json"
+  dir.create(dirname(out), recursive = TRUE, showWarnings = FALSE)
+  jsonlite::write_json(centroids, out, auto_unbox = FALSE, digits = 6)
+  cat("wrote", out, "(", length(centroids), "centroids )\n")
+
   list(
-    geojson  = "geo/gemeenten.geojson",
-    topojson = "geo/gemeenten.topo.json",
-    idProp   = "area_code"
+    geojson   = "geo/gemeenten.geojson",
+    topojson  = "geo/gemeenten.topo.json",
+    centroids = "geo/gem-centroids.json",
+    idProp    = "area_code"
   )
 }
