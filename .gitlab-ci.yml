@@ -65,8 +65,11 @@ build:
     - install
   script:
     # .env supplies AUTH_DISABLED, BETTER_AUTH_SECRET, DATABASE_URL, PUBLIC_PROTOMAPS_API_KEY.
-    # BASE_PATH is CI-specific so the assets resolve under /<project>/.
-    - export BASE_PATH="/$CI_PROJECT_NAME"
+    # BASE_PATH is derived from CI_PAGES_URL's pathname so assets resolve under
+    # whatever path GitLab actually serves on — '' for unique-domain pages,
+    # '/<project>' for the legacy path-based layout.
+    - export BASE_PATH="$(node -e 'process.stdout.write(new URL(process.env.CI_PAGES_URL).pathname.replace(/\/$/, ""))')"
+    - echo "Building with BASE_PATH='$BASE_PATH' (CI_PAGES_URL='$CI_PAGES_URL')"
     - npm run build
   artifacts:
     paths:
