@@ -10,9 +10,11 @@
 	import DatasetPicker from '$lib/ui/DatasetPicker.svelte';
 	import YearPicker from '$lib/ui/YearPicker.svelte';
 	import CategoryFilters from '$lib/ui/CategoryFilters.svelte';
+	import SaveLayerInput from '$lib/ui/SaveLayerInput.svelte';
 	import OverlayControls from '$lib/ui/OverlayControls.svelte';
 	import StudyAreaControls from '$lib/ui/StudyAreaControls.svelte';
 	import ClassificationControls from '$lib/ui/ClassificationControls.svelte';
+	import LayerCalculator from '$lib/ui/LayerCalculator.svelte';
 	import Legend from '$lib/cartography/Legend.svelte';
 	import Histogram from '$lib/cartography/Histogram.svelte';
 	import { classify } from '$lib/cartography/classify.js';
@@ -24,6 +26,7 @@
 	import { manifestState } from '$lib/state/manifest.svelte.js';
 	import { queryResult } from '$lib/state/query-result.svelte.js';
 	import { studyArea } from '$lib/state/study-area.svelte.js';
+	import { layers, displayed } from '$lib/state/layers.svelte.js';
 
 	let { data } = $props();
 	let lassoActive = $state(false);
@@ -39,15 +42,17 @@
 	const manifest = $derived(manifestState.data);
 
 	const status = $derived.by(() => {
-		if (queryResult.error) return queryResult.error;
+		if (displayed.error) return displayed.error;
 		if (manifestState.error) return manifestState.error;
-		if (queryResult.loading || manifestState.loading) return 'querying…';
+		if (displayed.loading || manifestState.loading) return 'querying…';
 		const unit = selection.scale === 'pc4' ? 'PC4s' : 'gemeenten';
-		return `${queryResult.data.size.toLocaleString()} ${unit}`;
+		const active = displayed.activeLayer;
+		const prefix = active ? `${active.name}: ` : '';
+		return `${prefix}${displayed.data.size.toLocaleString()} ${unit}`;
 	});
 
 	const sortedValues = $derived(
-		[...queryResult.data.values()].filter((v) => Number.isFinite(v) && v > 0)
+		[...displayed.data.values()].filter((v) => Number.isFinite(v) && v > 0)
 	);
 
 	const breaks = $derived.by(() => {
@@ -70,7 +75,7 @@
 					sourceId="choropleth-{selection.scale}"
 					geoUrl="/data/{geoMain.geojson}"
 					promoteId={geoMain.idProp}
-					valueByArea={queryResult.data}
+					valueByArea={displayed.data}
 					selectedIds={studyArea.ids}
 					{fillColor}
 					fillOpacity={cartography.fillOpacity}
@@ -113,8 +118,8 @@
 		</div>
 		<div
 			class="status"
-			class:busy={queryResult.loading}
-			class:err={queryResult.error || manifestState.error}
+			class:busy={displayed.loading}
+			class:err={displayed.error || manifestState.error}
 		>
 			{status}
 		</div>
@@ -130,10 +135,16 @@
 				<DatasetPicker {manifest} />
 				<YearPicker {manifest} />
 				<CategoryFilters {manifest} />
+				<div class="save-divider"></div>
+				<SaveLayerInput {manifest} />
 			</div>
 		{:else}
 			<p class="hint">Loading manifest…</p>
 		{/if}
+	</Panel>
+
+	<Panel title="Layers" open={layers.items.length > 0}>
+		<LayerCalculator {manifest} />
 	</Panel>
 
 	<Panel title="Cartography">
@@ -237,6 +248,9 @@
 		color: var(--color-hint);
 		font-size: var(--text-sm);
 		margin: 0;
+	}
+	.save-divider {
+		border-top: 1px solid var(--color-line);
 	}
 	.debug {
 		position: fixed;

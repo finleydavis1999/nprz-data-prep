@@ -7,7 +7,7 @@
 	import { selection } from '$lib/state/selection.svelte.js';
 	import { cartography } from '$lib/state/cartography.svelte.js';
 	import { manifestState } from '$lib/state/manifest.svelte.js';
-	import { queryResult } from '$lib/state/query-result.svelte.js';
+	import { displayed } from '$lib/state/layers.svelte.js';
 
 	let title = $state('');
 	let mapWrap;
@@ -20,7 +20,7 @@
 	);
 
 	const sortedValues = $derived(
-		[...queryResult.data.values()].filter((v) => Number.isFinite(v) && v > 0)
+		[...displayed.data.values()].filter((v) => Number.isFinite(v) && v > 0)
 	);
 	const breaks = $derived.by(() => {
 		if (sortedValues.length === 0) return null;
@@ -28,11 +28,13 @@
 	});
 	const colors = $derived(breaks ? paletteColors(cartography.palette, cartography.n) : []);
 
-	const defaultTitle = $derived(
-		dataset && geo
+	const defaultTitle = $derived.by(() => {
+		const active = displayed.activeLayer;
+		if (active) return `${active.name} — ${selection.scale === 'pc4' ? 'PC4' : 'Gemeente'}`;
+		return dataset && geo
 			? `${dataset.name} — ${selection.scale === 'pc4' ? 'PC4' : 'Gemeente'} — ${yearLabel}`
-			: ''
-	);
+			: '';
+	});
 	const effectiveTitle = $derived(title.trim() || defaultTitle);
 
 	function onDownload() {
@@ -62,12 +64,12 @@
 			{#if geo && breaks}
 				<PrintMap
 					topojsonUrl="/data/{geo.topojson}"
-					valueByArea={queryResult.data}
+					valueByArea={displayed.data}
 					{breaks}
 					{colors}
 					idProp={geo.idProp}
 				/>
-			{:else if !manifest || queryResult.loading}
+			{:else if !manifest || displayed.loading}
 				<p class="hint">Loading…</p>
 			{:else}
 				<p class="hint">No data.</p>

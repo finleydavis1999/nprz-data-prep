@@ -12,6 +12,7 @@ See `README.md` for the user-facing run/architecture docs.
 - **CSS tokens only.** Every `<style>` block consumes `var(--text-sm)`, `var(--color-muted)`, `var(--spacing-2)` etc. defined in `src/routes/layout.css` `@theme`. No raw `#rrggbb` / `0.85rem` / `8px` literals.
 - **State module suffix `.svelte.js`** for runes-using files (the compiler needs the suffix).
 - **Reactivity for object members**: assign new objects (`s.filters = { ...s.filters, [k]: v }`); deep mutation isn't tracked.
+- **Layer calculator state** lives in `src/lib/state/layers.svelte.js` (singleton `layers` + read-only `displayed` facade), persisted to `localStorage` under `nprz.layers.v1`. The map/legend/print read `displayed.data` so an active saved layer overrides the live `queryResult.data`.
 
 ## Tooling
 
