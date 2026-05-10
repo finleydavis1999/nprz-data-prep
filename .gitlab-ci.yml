@@ -75,6 +75,25 @@ build:
     paths:
       - build/
     expire_in: 1 day
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+build:dev:
+  stage: build
+  needs:
+    - install
+  script:
+    # Parallel Pages deployment lives under /dev on the unique-domain host,
+    # so BASE_PATH must match for asset paths to resolve.
+    - export BASE_PATH="/dev"
+    - echo "Building with BASE_PATH='$BASE_PATH'"
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+    expire_in: 1 day
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev"
 
 pages:
   stage: deploy
@@ -85,8 +104,27 @@ pages:
     - test:e2e
   script:
     - mv build public
+  pages:
+    path_prefix: ''
   artifacts:
     paths:
       - public
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+pages:dev:
+  stage: deploy
+  needs:
+    - build:dev
+    - lint
+    - test:unit
+    - test:e2e
+  script:
+    - mv build public
+  pages:
+    path_prefix: 'dev'
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev"
