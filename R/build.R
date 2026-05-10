@@ -17,6 +17,9 @@ source("R/nodes/demographics.R")
 source("R/nodes/banen-werk.R")
 source("R/nodes/banen-woon.R")
 source("R/edges/ovin.R")
+source("R/edges/woonwerk.R")
+source("R/edges/werkwerk.R")
+source("R/edges/migration.R")
 
 cat("=== building geo ===\n")
 geo <- list(
@@ -33,7 +36,10 @@ datasets <- list(
 
 cat("\n=== building flow datasets ===\n")
 flows <- list(
-  ovin = build_ovin()
+  ovin = build_ovin(),
+  woonwerk = build_woonwerk(),
+  werkwerk = build_werkwerk(),
+  migration = build_migration()
 )
 
 cat("\n=== writing manifest ===\n")

@@ -12,9 +12,16 @@
 	let expandedId = $state(/** @type {string | null} */ (null));
 	let exprEditor = $state(/** @type {HTMLDivElement | null} */ (null));
 	let dragSlug = $state(/** @type {string | null} */ (null));
+	/** @type {'node' | 'flow'} */
+	let calcDomain = $state('node');
+	/** @type {'inflow' | 'outflow' | 'net'} */
+	let flowAgg = $state('inflow');
 
 	const sameScale = $derived(layers.items.filter((l) => l.scale === selection.scale));
 	const slugKind = $derived(new Map(sameScale.map((l) => [l.slug, l.kind])));
+	const slugDomain = $derived(new Map(sameScale.map((l) => [l.slug, l.domain ?? 'node'])));
+	const nodeLayers = $derived(sameScale.filter((l) => (l.domain ?? 'node') === 'node'));
+	const flowLayers = $derived(sameScale.filter((l) => l.domain === 'flow'));
 
 	function onSaveCalc(e) {
 		e.preventDefault();
@@ -29,7 +36,7 @@
 			return;
 		}
 		try {
-			layers.saveCalc(calcName, calcExpr);
+			layers.saveCalc(calcName, calcExpr, calcDomain);
 			calcName = '';
 			calcExpr = '';
 			// eslint-disable-next-line svelte/no-dom-manipulating -- editor is a controlled contenteditable, not part of Svelte's tree
@@ -110,9 +117,14 @@
 		return span;
 	}
 
-	// Insert a chip span at the current selection inside the editor (or at the
-	// end if focus is elsewhere). Wraps with single spaces so the surrounding
-	// text doesn't fuse with the chip.
+	// True if inserting this slug into the current calc requires wrapping with
+	// a flow→node aggregator (flow input feeding a node-domain expression).
+	function needsAggWrap(slug) {
+		return calcDomain === 'node' && slugDomain.get(slug) === 'flow';
+	}
+
+	// Insert a chip (optionally wrapped in `<agg>( … )` for cross-domain refs).
+	// Wraps with single spaces so the surrounding text doesn't fuse with neighbours.
 	function insertChipAtCaret(slug) {
 		if (!exprEditor) return;
 		exprEditor.focus();
@@ -124,13 +136,13 @@
 			range.collapse(false);
 		}
 		range.deleteContents();
-		const lead = document.createTextNode(' ');
+		const wrapped = needsAggWrap(slug);
+		const lead = document.createTextNode(wrapped ? ` ${flowAgg}(` : ' ');
 		const chip = makeChipNode(slug);
-		const tail = document.createTextNode(' ');
+		const tail = document.createTextNode(wrapped ? ') ' : ' ');
 		range.insertNode(tail);
 		range.insertNode(chip);
 		range.insertNode(lead);
-		// Move caret after the trailing space.
 		const after = document.createRange();
 		after.setStartAfter(tail);
 		after.collapse(true);
@@ -222,7 +234,9 @@
 					>
 						{isActive ? '●' : '○'}
 					</button>
-					<span class="kind" title={layer.kind}>{layer.kind === 'calc' ? 'ƒ' : '◆'}</span>
+					<span class="kind" title="{layer.domain ?? 'node'} {layer.kind}"
+						>{layer.kind === 'calc' ? 'ƒ' : (layer.domain === 'flow' ? '~' : '◆')}</span
+					>
 					<button
 						type="button"
 						class="name-btn"
@@ -256,7 +270,14 @@
 									<span class="k">Dataset</span><span>{datasetLabel(layer)}</span>
 								</div>
 								<div class="line"><span class="k">Scale</span><span>{layer.scale}</span></div>
-								<div class="line"><span class="k">Year</span><span>{layer.year}</span></div>
+								{#if layer.domain === 'flow'}
+									<div class="line">
+										<span class="k">Years</span>
+										<span>{layer.yearMin === layer.yearMax ? layer.yearMin : `${layer.yearMin}–${layer.yearMax}`}</span>
+									</div>
+								{:else}
+									<div class="line"><span class="k">Year</span><span>{layer.year}</span></div>
+								{/if}
 								{#if layer.filters && Object.keys(layer.filters).length > 0}
 									{#each Object.entries(layer.filters) as [fieldId, vals] (fieldId)}
 										{#if vals && vals.length}
@@ -290,6 +311,26 @@
 
 	<form class="calc" onsubmit={onSaveCalc}>
 		<div class="calc-head">Add calculation</div>
+		<Field label="Output">
+			<div class="seg" role="radiogroup" aria-label="Calc output domain">
+				<button
+					type="button"
+					class:active={calcDomain === 'node'}
+					aria-pressed={calcDomain === 'node'}
+					onclick={() => (calcDomain = 'node')}
+				>
+					Node layer
+				</button>
+				<button
+					type="button"
+					class:active={calcDomain === 'flow'}
+					aria-pressed={calcDomain === 'flow'}
+					onclick={() => (calcDomain = 'flow')}
+				>
+					Flow layer
+				</button>
+			</div>
+		</Field>
 		<Field label="Name">
 			<input type="text" placeholder="e.g. youthShare" bind:value={calcName} autocomplete="off" />
 		</Field>
@@ -310,24 +351,65 @@
 				spellcheck="false"
 			></div>
 		</Field>
+		{#if calcDomain === 'node' && flowLayers.length > 0}
+			<Field label="Flow as">
+				<select bind:value={flowAgg} class="agg-select" title="Aggregator used when inserting a flow layer">
+					<option value="inflow">inflow( )</option>
+					<option value="outflow">outflow( )</option>
+					<option value="net">net( )</option>
+				</select>
+			</Field>
+		{/if}
 		{#if sameScale.length > 0}
-			<div class="palette" aria-label="Available layers — click or drag to insert">
-				{#each sameScale as l (l.id)}
-					<button
-						type="button"
-						class="layer-chip"
-						class:calc={l.kind === 'calc'}
-						draggable="true"
-						ondragstart={(e) => onChipDragStart(e, l.slug)}
-						ondragend={onChipDragEnd}
-						onclick={() => insertChipAtCaret(l.slug)}
-						title="Click to insert · drag into expression"
-					>
-						<span class="chip-kind">{l.kind === 'calc' ? 'ƒ' : '◆'}</span>
-						<span class="chip-slug">{l.slug}</span>
-					</button>
-				{/each}
-			</div>
+			{#if nodeLayers.length > 0}
+				<div class="palette-group">
+					<div class="palette-head">Node layers</div>
+					<div class="palette" aria-label="Available node layers — click to insert">
+						{#each nodeLayers as l (l.id)}
+							{@const disabled = calcDomain === 'flow'}
+							<button
+								type="button"
+								class="layer-chip"
+								class:calc={l.kind === 'calc'}
+								class:dim={disabled}
+								{disabled}
+								draggable={!disabled}
+								ondragstart={(e) => onChipDragStart(e, l.slug)}
+								ondragend={onChipDragEnd}
+								onclick={() => insertChipAtCaret(l.slug)}
+								title={disabled ? 'Switch output to Node to use this' : 'Click to insert'}
+							>
+								<span class="chip-kind">{l.kind === 'calc' ? 'ƒ' : '◆'}</span>
+								<span class="chip-slug">{l.slug}</span>
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
+			{#if flowLayers.length > 0}
+				<div class="palette-group">
+					<div class="palette-head">Flow layers{#if calcDomain === 'node'} <span class="muted">— wrapped with {flowAgg}( )</span>{/if}</div>
+					<div class="palette" aria-label="Available flow layers — click to insert">
+						{#each flowLayers as l (l.id)}
+							<button
+								type="button"
+								class="layer-chip flow"
+								class:calc={l.kind === 'calc'}
+								draggable="true"
+								ondragstart={(e) => onChipDragStart(e, l.slug)}
+								ondragend={onChipDragEnd}
+								onclick={() => insertChipAtCaret(l.slug)}
+								title={calcDomain === 'node'
+									? `Inserts ${flowAgg}(${l.slug})`
+									: 'Click to insert'}
+							>
+								<span class="chip-kind">{l.kind === 'calc' ? 'ƒ' : '~'}</span>
+								<span class="chip-slug">{l.slug}</span>
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
 		{:else}
 			<p class="hint">Save at least one layer from the Data panel first.</p>
 		{/if}
@@ -513,6 +595,56 @@
 	.layer-chip.calc {
 		background: #fff;
 		color: var(--color-accent);
+	}
+	.layer-chip.flow {
+		background: var(--color-bg-panel);
+		color: var(--color-text);
+		border-color: var(--color-line);
+	}
+	.layer-chip.flow.calc {
+		background: #fff;
+	}
+	.layer-chip.dim {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+	.palette-group {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.palette-head {
+		font-size: var(--text-xs);
+		color: var(--color-muted);
+		padding-left: calc(var(--label-col) + var(--spacing-2));
+	}
+	.palette-head .muted {
+		color: var(--color-hint);
+	}
+	.seg {
+		display: inline-flex;
+		border: 1px solid var(--color-line);
+		border-radius: var(--radius);
+		overflow: hidden;
+	}
+	.seg button {
+		background: transparent;
+		border: none;
+		padding: 2px var(--spacing-2);
+		font-size: var(--text-xs);
+		color: var(--color-muted);
+		cursor: pointer;
+	}
+	.seg button + button {
+		border-left: 1px solid var(--color-line);
+	}
+	.seg button.active {
+		background: var(--color-accent);
+		color: var(--color-accent-fg);
+	}
+	.agg-select {
+		font-family: ui-monospace, monospace;
+		font-size: var(--text-xs);
 	}
 	.chip-kind {
 		font-size: 9px;

@@ -1,4 +1,5 @@
 <script>
+	import { onMount } from 'svelte';
 	import { base, resolve } from '$app/paths';
 	import PrintMap from '$lib/print/PrintMap.svelte';
 	import Legend from '$lib/cartography/Legend.svelte';
@@ -9,6 +10,10 @@
 	import { cartography } from '$lib/state/cartography.svelte.js';
 	import { manifestState } from '$lib/state/manifest.svelte.js';
 	import { displayed } from '$lib/state/layers.svelte.js';
+	import { flow, flowCartography } from '$lib/state/flow.svelte.js';
+	import { ui } from '$lib/state/ui.svelte.js';
+	import { geoNames } from '$lib/state/geo-names.svelte.js';
+	import { runFlows } from '$lib/data/flowQuery.js';
 
 	let title = $state('');
 	let mapWrap;
@@ -28,6 +33,78 @@
 		return classify(sortedValues, { method: cartography.method, n: cartography.n });
 	});
 	const colors = $derived(breaks ? paletteColors(cartography.palette, cartography.n) : []);
+
+	// --- Flow side mirrors `/` route. Re-runs whenever flow state changes.
+	let flowResult = $state(/** @type {{flows:{o:string,d:string,value:number}[], min:number, max:number} | null} */ (null));
+	let centroids = $state(/** @type {Record<string, [number,number]> | null} */ (null));
+
+	onMount(() => {
+		ui.load();
+		manifestState.ensureLoaded();
+	});
+
+	$effect(() => {
+		if (!manifest) return;
+		geoNames.ensureLoaded(selection.scale);
+		if (flow.enabled && flow.scale !== selection.scale) geoNames.ensureLoaded(flow.scale);
+	});
+
+	// Load RD-projected centroids when flows are enabled. The print map's
+	// projection is `geoIdentity` over RD topojson — passing WGS84 lng/lat
+	// would drop the lines outside the fitted bbox.
+	$effect(() => {
+		if (!manifest || !flow.enabled || centroids) return;
+		const path = manifest?.geo?.[flow.scale]?.centroidsRd;
+		if (!path) return;
+		fetch(`${base}/data/${path}`)
+			.then((r) => (r.ok ? r.json() : null))
+			.then((json) => {
+				centroids = json;
+			})
+			.catch(() => {
+				centroids = null;
+			});
+	});
+
+	$effect(() => {
+		if (!manifest || !flow.enabled) {
+			flowResult = null;
+			return;
+		}
+		const args = {
+			dataset: flow.dataset,
+			scale: flow.scale,
+			yearMin: flow.yearMin,
+			yearMax: flow.yearMax,
+			filters: flow.filters,
+			includeSelfLoops: flow.includeSelfLoops
+		};
+		runFlows(args)
+			.then((res) => {
+				flowResult = res;
+			})
+			.catch(() => {
+				flowResult = null;
+			});
+	});
+
+	const filteredFlows = $derived(
+		flowResult ? flowResult.flows.filter((f) => f.value >= flow.minWeight) : []
+	);
+
+	const flowValues = $derived(
+		filteredFlows.map((f) => f.value).filter((v) => Number.isFinite(v) && v > 0)
+	);
+	const flowBreaks = $derived.by(() => {
+		if (flowValues.length === 0) return null;
+		return classify(flowValues, { method: flowCartography.method, n: flowCartography.n });
+	});
+	const flowColors = $derived(
+		flowBreaks ? paletteColors(flowCartography.palette, flowCartography.n) : []
+	);
+
+	// Name lookup for pie labels + optional label layer.
+	const nameByCode = $derived(geoNames.byScale.get(selection.scale) ?? null);
 
 	const defaultTitle = $derived.by(() => {
 		const active = displayed.activeLayer;
@@ -69,6 +146,18 @@
 					{breaks}
 					{colors}
 					idProp={geo.idProp}
+					flows={flow.enabled ? filteredFlows : []}
+					centroids={centroids ?? {}}
+					{flowBreaks}
+					{flowColors}
+					widthMin={flowCartography.widthMin}
+					widthMax={flowCartography.widthMax}
+					opacity={flowCartography.opacity}
+					curvature={flowCartography.curvature}
+					selectedFlowNode={ui.selectedFlowNode}
+					flowMode={ui.flowMode}
+					{nameByCode}
+					labelLayer={ui.showLabels}
 				/>
 			{:else if !manifest || displayed.loading}
 				<p class="hint">Loading…</p>

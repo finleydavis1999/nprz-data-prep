@@ -13,7 +13,12 @@
 		widthMin = 0.5,
 		widthMax = 8,
 		opacity = 0.75,
-		curvature = 0.2
+		curvature = 0.2,
+		// When set, restrict rendered flows to those touching this node id.
+		// `mode` controls how: 'in' = arriving at the node, 'out' = leaving it,
+		// 'unified' = one bidirectional line per neighbor with summed value.
+		selectedNode = null,
+		mode = 'unified'
 	} = $props();
 
 	const ctx = getMapContext();
@@ -27,11 +32,34 @@
 		return n - 1;
 	}
 
+	// Filter / combine flows based on the optional selected node and mode. For
+	// 'in' / 'out' this is a straightforward filter; 'unified' merges each pair
+	// touching the selected node into a single bidirectional edge whose value
+	// sums both directions.
+	const effectiveFlows = $derived.by(() => {
+		if (!selectedNode) return flows;
+		if (mode === 'in') return flows.filter((f) => f.d === selectedNode);
+		if (mode === 'out') return flows.filter((f) => f.o === selectedNode);
+		// unified: combine each {selectedNode, neighbor} pair into one entry.
+		/** @type {Map<string, number>} */
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local accumulator, not reactive
+		const byNeighbor = new Map();
+		for (const f of flows) {
+			if (f.o !== selectedNode && f.d !== selectedNode) continue;
+			const neighbor = f.o === selectedNode ? f.d : f.o;
+			const prev = byNeighbor.get(neighbor) ?? 0;
+			byNeighbor.set(neighbor, prev + f.value);
+		}
+		const out = [];
+		for (const [neighbor, value] of byNeighbor) {
+			out.push({ o: selectedNode, d: neighbor, value });
+		}
+		return out;
+	});
+
 	const features = $derived.by(() => {
-		if (!flows.length || !breaks) return [];
-		// Sort descending so heavy flows are added first (drawn underneath) and
-		// lighter flows end up on top — keeps small flows from being obscured.
-		const sorted = [...flows].sort((a, b) => b.value - a.value);
+		if (!effectiveFlows.length || !breaks) return [];
+		const sorted = [...effectiveFlows].sort((a, b) => b.value - a.value);
 		const out = [];
 		for (const f of sorted) {
 			const o = centroids[f.o];
@@ -40,7 +68,7 @@
 			out.push({
 				type: 'Feature',
 				geometry: { type: 'LineString', coordinates: bezierLine(o, d, { curvature }) },
-				properties: { value: f.value, classIdx: classIndex(f.value, breaks) }
+				properties: { o: f.o, d: f.d, value: f.value, classIdx: classIndex(f.value, breaks) }
 			});
 		}
 		return out;

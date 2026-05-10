@@ -1,7 +1,14 @@
 // Calc-layer expression parsing + evaluation. Uses math.js for safe AST-based
 // evaluation (no Function/eval). Symbols in the expression must resolve to
 // saved-layer slugs.
-import { parse } from 'mathjs';
+//
+// Aggregator support: `inflow(flowSlug)`, `outflow(flowSlug)` and
+// `net(flowSlug)` are recognised at parse time. The AST is rewritten so each
+// `agg(slug)` call becomes a synthetic symbol (`__agg__slug`), and the caller
+// pre-computes the aggregated per-node map under that synthetic name before
+// `evaluateOverAreas`.
+import { parse, SymbolNode } from 'mathjs';
+import { AGGREGATOR_NAMES } from './flow-aggregations.js';
 
 // Sensible default display name for a snapshot of `selection`. The user can
 // always edit before saving. Joins active filter value labels; falls back to
@@ -38,14 +45,40 @@ export function slugify(name) {
 	return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`;
 }
 
-// Parse an expression and return { compiled, symbols } or throw.
+const AGG_SET = new Set(AGGREGATOR_NAMES);
+
+function synthSlug(aggName, slug) {
+	return `__${aggName}__${slug}`;
+}
+
+export { synthSlug };
+
+// Parse an expression and return { compiled, symbols, aggs }.
+//   - `symbols`: every SymbolNode name in the rewritten tree. Aggregator calls
+//     are replaced with synthetic symbols so the caller knows to pre-fill them.
+//   - `aggs`: list of { aggName, slug, synthSlug } the caller must resolve from
+//     flow-domain layers and aggregate before evaluation.
 export function parseExpression(expr) {
-	const node = parse(expr);
+	const root = parse(expr);
+	const aggs = [];
+	const transformed = root.transform((n) => {
+		if (!n.isFunctionNode) return n;
+		const aggName = n.fn?.name ?? n.name;
+		if (!AGG_SET.has(aggName)) return n;
+		const arg = n.args?.[0];
+		if (!arg || !arg.isSymbolNode || n.args.length !== 1) {
+			throw new Error(`${aggName}() takes one layer slug, got ${n.args?.length ?? 0} args`);
+		}
+		const slug = arg.name;
+		const synth = synthSlug(aggName, slug);
+		aggs.push({ aggName, slug, synthSlug: synth });
+		return new SymbolNode(synth);
+	});
 	const symbols = new Set();
-	node.traverse((n) => {
+	transformed.traverse((n) => {
 		if (n.isSymbolNode) symbols.add(n.name);
 	});
-	return { compiled: node.compile(), symbols: [...symbols] };
+	return { compiled: transformed.compile(), symbols: [...symbols], aggs };
 }
 
 // Evaluate over a set of per-area inputs.

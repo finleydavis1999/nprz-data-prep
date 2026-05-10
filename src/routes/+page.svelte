@@ -14,12 +14,18 @@
 	import YearPicker from '$lib/ui/YearPicker.svelte';
 	import CategoryFilters from '$lib/ui/CategoryFilters.svelte';
 	import SaveLayerInput from '$lib/ui/SaveLayerInput.svelte';
+	import SaveFlowLayerInput from '$lib/ui/SaveFlowLayerInput.svelte';
 	import OverlayControls from '$lib/ui/OverlayControls.svelte';
 	import StudyAreaControls from '$lib/ui/StudyAreaControls.svelte';
 	import ClassificationControls from '$lib/ui/ClassificationControls.svelte';
 	import LayerCalculator from '$lib/ui/LayerCalculator.svelte';
+	import FloatingDock from '$lib/ui/FloatingDock.svelte';
+	import DockToggleStrip from '$lib/ui/DockToggleStrip.svelte';
+	import InspectPanel from '$lib/ui/InspectPanel.svelte';
+	import InspectInteraction from '$lib/map/InspectInteraction.svelte';
+	import NodeNamesLayer from '$lib/map/NodeNamesLayer.svelte';
+	import FlowPies from '$lib/map/FlowPies.svelte';
 	import Legend from '$lib/cartography/Legend.svelte';
-	import Histogram from '$lib/cartography/Histogram.svelte';
 	import { runFlows } from '$lib/data/flowQuery.js';
 	import { classify } from '$lib/cartography/classify.js';
 	import { paletteColors } from '$lib/cartography/palettes.js';
@@ -30,15 +36,43 @@
 	import { manifestState } from '$lib/state/manifest.svelte.js';
 	import { queryResult } from '$lib/state/query-result.svelte.js';
 	import { studyArea } from '$lib/state/study-area.svelte.js';
-	import { layers, displayed } from '$lib/state/layers.svelte.js';
+	import { displayed } from '$lib/state/layers.svelte.js';
 	import { flow, flowCartography } from '$lib/state/flow.svelte.js';
+	import { ui } from '$lib/state/ui.svelte.js';
+	import { geoNames } from '$lib/state/geo-names.svelte.js';
 
 	let { data } = $props();
 	let lassoActive = $state(false);
 
 	const manifest = $derived(manifestState.data);
 
-	let centroids = $state(/** @type {Record<string, [number,number]> | null} */ (null));
+	// Preload area_code → name lookups for the current scale (and the flow
+	// scale if different — used to label flow endpoints).
+	$effect(() => {
+		if (!manifest) return;
+		geoNames.ensureLoaded(selection.scale);
+		if (flow.enabled && flow.scale !== selection.scale) {
+			geoNames.ensureLoaded(flow.scale);
+		}
+	});
+
+	// Pin flow.scale to the active node scale. If the chosen flow dataset
+	// doesn't have data at that scale (OViN is gem-only), the query is
+	// short-circuited below and the flow layer simply doesn't render —
+	// switching scales reliably resets the displayed flows.
+	$effect(() => {
+		if (flow.scale !== selection.scale) flow.scale = selection.scale;
+	});
+
+	// Whether the current flow dataset has data at the active scale.
+	const flowScaleAvailable = $derived(
+		!!manifest?.flows?.[flow.dataset]?.scales?.[selection.scale]
+	);
+
+	// Centroids cache keyed by scale so flow-scale switches don't re-fetch
+	// repeatedly. Populated lazily on first use of each scale.
+	let centroidsByScale = $state(/** @type {Record<string, Record<string, [number,number]>>} */ ({}));
+	const centroids = $derived(centroidsByScale[flow.scale] ?? null);
 	let flowResult = $state(
 		/** @type {{flows:{o:string,d:string,value:number}[], min:number, max:number} | null} */ (null)
 	);
@@ -51,6 +85,7 @@
 	const FLOW_DEFAULT_TOP_FRACTION = 0.3;
 
 	onMount(() => {
+		ui.load();
 		studyArea.init();
 	});
 
@@ -58,17 +93,19 @@
 		studyArea.bindToScale(selection.scale);
 	});
 
-	// Load gemeente centroids once (used by FlowLayer to draw OD curves).
+	// Load centroids for the current flow scale (used by FlowLayer for OD
+	// curves and FlowPies for symbol placement).
 	$effect(() => {
-		const path = manifest?.geo?.gem?.centroids;
-		if (!path || centroids) return;
-		fetch(`/data/${path}`)
+		const scale = flow.scale;
+		const path = manifest?.geo?.[scale]?.centroids;
+		if (!path || centroidsByScale[scale]) return;
+		fetch(`${base}/data/${path}`)
 			.then((r) => {
 				if (!r.ok) throw new Error(`HTTP ${r.status}`);
 				return r.json();
 			})
 			.then((json) => {
-				centroids = json;
+				centroidsByScale = { ...centroidsByScale, [scale]: json };
 			})
 			.catch((e) => {
 				flowError = `centroids: ${e.message}`;
@@ -78,7 +115,7 @@
 	// Re-run flow query whenever flow selection changes (only while enabled).
 	// Note: flow.minWeight is a client-side filter (see filteredFlows below).
 	$effect(() => {
-		if (!manifest || !flow.enabled) {
+		if (!manifest || !flow.enabled || !flowScaleAvailable) {
 			flowResult = null;
 			return;
 		}
@@ -164,6 +201,15 @@
 		flowBreaks ? paletteColors(flowCartography.palette, flowCartography.n) : []
 	);
 
+	// Map keyed by `${o}|${d}` for fast lookup in the inspect panel.
+	const flowsByPair = $derived.by(() => {
+		/** @type {Map<string, number>} */
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local lookup table, not directly mutated post-derivation
+		const m = new Map();
+		for (const f of filteredFlows) m.set(`${f.o}|${f.d}`, f.value);
+		return m;
+	});
+
 	// Min-weight slider bounds — driven by the current full result so the slider
 	// doesn't jump as the user drags it.
 	const flowMaxValue = $derived(flowResult?.max ?? 0);
@@ -190,6 +236,9 @@
 					lineWidth={cartography.lineWidth}
 				/>
 				<LassoTool active={lassoActive} fillLayerId="choropleth-{selection.scale}-fill" />
+				{#if ui.showLabels}
+					<NodeNamesLayer sourceId="choropleth-{selection.scale}" />
+				{/if}
 			{/key}
 			{#if geoOverlay}
 				{#key overlay.scale}
@@ -214,18 +263,34 @@
 					widthMax={flowCartography.widthMax}
 					opacity={flowCartography.opacity}
 					curvature={flowCartography.curvature}
+					selectedNode={ui.selectedFlowNode}
+					mode={ui.flowMode}
 				/>
+				{#if ui.selectedFlowNode}
+					<FlowPies
+						selectedNode={ui.selectedFlowNode}
+						flows={filteredFlows}
+						{centroids}
+						scale={flow.scale}
+					/>
+				{/if}
 			{/if}
+			<InspectInteraction
+				nodeFillLayerId="choropleth-{selection.scale}-fill"
+				flowLineLayerId={flow.enabled ? `flow-${flow.dataset}-${flow.scale}-line` : null}
+				nodeScale={selection.scale}
+				flowScale={flow.scale}
+				flowEnabled={flow.enabled}
+			/>
 		{/if}
 	</MapView>
 </div>
 
-<div class="sidebar">
+<div class="sidebar sidebar-left">
 	<div class="header">
 		<div class="brand-row">
 			<div class="brand">NPRZ <span class="brand-sub">analytics</span></div>
 			<div class="actions">
-				<a class="action" href={resolve('/print')} title="Print preview">⎙</a>
 				{#if data.user}
 					<form method="POST" action="?/logout" class="logout-form">
 						<button type="submit" class="action" title="Sign out — {data.user.email}">↪</button>
@@ -263,10 +328,6 @@
 		{/if}
 	</Panel>
 
-	<Panel title="Layers" open={layers.items.length > 0}>
-		<LayerCalculator {manifest} />
-	</Panel>
-
 	<Panel title="Flow data" open={false}>
 		{#if manifest}
 			<div class="stack">
@@ -274,6 +335,12 @@
 					<input type="checkbox" bind:checked={flow.enabled} />
 				</Field>
 				<DatasetPicker {manifest} state={flow} section="flows" />
+				{#if flow.enabled && !flowScaleAvailable}
+					<p class="hint">
+						This dataset is not available at {selection.scale === 'pc4' ? 'PC4' : 'gemeente'}
+						scale. Switch the node scale to view flows.
+					</p>
+				{/if}
 				<YearPicker {manifest} state={flow} section="flows" />
 				<CategoryFilters {manifest} state={flow} section="flows" />
 				<Field label="Min weight" value={flow.minWeight.toFixed(flowMaxValue < 100 ? 1 : 0)}>
@@ -289,18 +356,43 @@
 				<Field label="Self-loops">
 					<input type="checkbox" bind:checked={flow.includeSelfLoops} />
 				</Field>
+				<div class="save-divider"></div>
+				<SaveFlowLayerInput {manifest} />
 			</div>
 		{:else}
 			<p class="hint">Loading manifest…</p>
 		{/if}
 	</Panel>
 
+	<Panel title="Boundary overlay" open={false}>
+		<OverlayControls />
+	</Panel>
+</div>
+
+<div class="sidebar sidebar-right">
+	<Panel title="Inspect" open>
+		<InspectPanel
+			nodeValueByArea={displayed.data}
+			nodeValues={sortedValues}
+			nodeBreaks={breaks}
+			nodeColors={colors}
+			nodeLabel={displayed.activeLayer?.name ?? 'live selection'}
+			nodeScale={selection.scale}
+			flowEnabled={flow.enabled}
+			flowScale={flow.scale}
+			{flowsByPair}
+			{flowValues}
+			{flowBreaks}
+			{flowColors}
+		/>
+	</Panel>
+
 	<Panel title="Node cartography">
 		<div class="stack">
 			<ClassificationControls />
-			{#if breaks && sortedValues.length}
-				<Histogram values={sortedValues} {breaks} {colors} />
-			{/if}
+			<Field label="Show names">
+				<input type="checkbox" bind:checked={ui.showLabels} />
+			</Field>
 			{#if breaks}
 				<Legend {breaks} {colors} />
 			{/if}
@@ -310,23 +402,38 @@
 	<Panel title="Flow cartography" open={false}>
 		<div class="stack">
 			<ClassificationControls target={flowCartography} />
-			{#if flowBreaks && flowValues.length}
-				<Histogram values={flowValues} breaks={flowBreaks} colors={flowColors} />
-			{/if}
 			{#if flowBreaks}
 				<Legend breaks={flowBreaks} colors={flowColors} />
 			{/if}
 		</div>
 	</Panel>
-
-	<Panel title="Study area" open={false}>
-		<StudyAreaControls bind:lassoActive />
-	</Panel>
-
-	<Panel title="Boundary overlay" open={false}>
-		<OverlayControls />
-	</Panel>
 </div>
+
+<FloatingDock
+	title="Layer calculator"
+	open={ui.openDocks.calculator}
+	x={ui.dockPositions.calculator.x}
+	y={ui.dockPositions.calculator.y}
+	width={340}
+	onClose={() => ui.toggleDock('calculator')}
+	onMove={(pos) => ui.setDockPosition('calculator', pos)}
+>
+	<LayerCalculator {manifest} />
+</FloatingDock>
+
+<FloatingDock
+	title="Study area"
+	open={ui.openDocks.studyArea}
+	x={ui.dockPositions.studyArea.x}
+	y={ui.dockPositions.studyArea.y}
+	width={320}
+	onClose={() => ui.toggleDock('studyArea')}
+	onMove={(pos) => ui.setDockPosition('studyArea', pos)}
+>
+	<StudyAreaControls bind:lassoActive />
+</FloatingDock>
+
+<DockToggleStrip />
 
 {#if queryResult.lastMs !== null}
 	<div class="debug" title="Last query duration">{queryResult.lastMs} ms</div>
@@ -336,7 +443,6 @@
 	.sidebar {
 		position: fixed;
 		top: var(--spacing-4);
-		left: var(--spacing-4);
 		z-index: 1;
 		display: flex;
 		flex-direction: column;
@@ -344,6 +450,13 @@
 		width: 300px;
 		max-height: calc(100vh - 2 * var(--spacing-4));
 		overflow-y: auto;
+	}
+	.sidebar-left {
+		left: var(--spacing-4);
+	}
+	.sidebar-right {
+		right: var(--spacing-4);
+		width: 320px;
 	}
 	.header {
 		padding: var(--spacing-2) var(--spacing-3);

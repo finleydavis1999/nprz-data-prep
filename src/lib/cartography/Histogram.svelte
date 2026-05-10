@@ -1,7 +1,14 @@
 <script>
-	import { Plot, RectY, AxisX, AxisY } from 'svelteplot';
+	import { Plot, RectY, RuleX, AxisX, AxisY } from 'svelteplot';
 
-	let { values = [], breaks = null, colors = [], nBins = 30, height = 130 } = $props();
+	let {
+		values = [],
+		breaks = null,
+		colors = [],
+		nBins = 30,
+		height = 130,
+		highlightValue = null
+	} = $props();
 
 	// For each bin, fill = color of the class its midpoint falls into.
 	function classIndex(v) {
@@ -40,6 +47,9 @@
 	{#if bins.length > 0}
 		<Plot {height} marginTop={6} marginBottom={22} marginLeft={36} marginRight={6}>
 			<RectY data={bins} x1="x0" x2="x1" y="count" fill="color" />
+			{#if Number.isFinite(highlightValue)}
+				<RuleX data={[highlightValue]} stroke="var(--color-text)" strokeWidth={1.5} />
+			{/if}
 			<AxisX tickCount={3} />
 			<AxisY tickCount={3} />
 		</Plot>

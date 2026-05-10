@@ -1,14 +1,41 @@
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 
 // Tests run with AUTH_DISABLED=true (set in playwright.config.js webServer.env),
 // so no login dance is needed.
+//
+// Worker-scoped browser context so OPFS (parquet cache), localStorage, and
+// the basemap HTTP cache persist across tests within the worker. Each test
+// still gets a fresh page from that shared context, so URL state and Svelte
+// in-memory state reset between tests. With `fullyParallel: false` in the
+// playwright config this means: 1 worker + 8 sequential tests + 1 cold-start.
+//
+// Playwright's built-in `context` fixture is already test-scoped and can't be
+// overridden to worker-scope, so we expose a separate `sharedContext` fixture
+// and rebuild `page` from it.
+const test = base.extend({
+	sharedContext: [
+		async ({ browser }, use) => {
+			const ctx = await browser.newContext();
+			await use(ctx);
+			await ctx.close();
+		},
+		{ scope: 'worker' }
+	],
+	page: async ({ sharedContext }, use) => {
+		const page = await sharedContext.newPage();
+		await use(page);
+		await page.close();
+	}
+});
 
-test.describe.serial('app', () => {
+test.describe('app', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/');
-		// Choropleth ready when the legend renders.
-		await expect(page.locator('.legend')).toBeVisible({ timeout: 30_000 });
-		await expect(page.locator('.status')).not.toContainText('querying');
+		// Choropleth ready when the node legend renders. Use `.first()` because
+		// once flows are enabled (state persists in the worker context), a
+		// second `.legend` appears in the flow cartography panel.
+		await expect(page.locator('.legend').first()).toBeVisible({ timeout: 30_000 });
+		await expect(page.locator('.status').first()).not.toContainText('querying');
 	});
 
 	test('renders header, status, sidebar panels, no console errors', async ({ page }) => {
@@ -20,20 +47,50 @@ test.describe.serial('app', () => {
 
 		await expect(page.locator('.brand')).toContainText('NPRZ');
 		await expect(page.locator('.status').first()).toContainText(/PC4s|gemeenten/);
-		const titles = await page.locator('details.panel summary').allTextContents();
-		expect(titles).toEqual([
-			'Scale',
-			'Node data',
-			'Layers',
-			'Flow data',
-			'Node cartography',
-			'Flow cartography',
-			'Study area',
-			'Boundary overlay'
-		]);
+
+		// Left sidebar: data inputs.
+		const leftTitles = await page
+			.locator('.sidebar-left details.panel summary')
+			.allTextContents();
+		expect(leftTitles).toEqual(['Scale', 'Node data', 'Flow data', 'Boundary overlay']);
+
+		// Right sidebar: inspect + cartography.
+		const rightTitles = await page
+			.locator('.sidebar-right details.panel summary')
+			.allTextContents();
+		expect(rightTitles).toEqual(['Inspect', 'Node cartography', 'Flow cartography']);
+
+		// Dock toggle strip exposes Layers, Study area, and Print.
+		await expect(page.locator('.strip')).toBeVisible();
+		await expect(page.locator('.strip .tool', { hasText: 'Layers' })).toBeVisible();
+		await expect(page.locator('.strip .tool', { hasText: 'Study area' })).toBeVisible();
+		await expect(page.locator('.strip a.tool.print', { hasText: 'Print' })).toBeVisible();
 
 		await page.waitForTimeout(500);
 		expect(errors.filter((e) => !/sourcemap/i.test(e))).toEqual([]);
+	});
+
+	test('layer calculator dock opens from the toggle strip', async ({ page }) => {
+		await expect(page.locator('.dock', { hasText: 'Layer calculator' })).toHaveCount(0);
+		await page.locator('.strip .tool', { hasText: 'Layers' }).click();
+		const dock = page.locator('.dock', { hasText: 'Layer calculator' });
+		await expect(dock).toBeVisible();
+		// Close button hides it. Cleans up persisted dock state for sibling tests.
+		await dock.locator('.dock-close').click();
+		await expect(page.locator('.dock', { hasText: 'Layer calculator' })).toHaveCount(0);
+	});
+
+	test('clicking a node populates the inspect panel', async ({ page }) => {
+		const inspect = page.locator('.sidebar-right details.panel', { hasText: 'Inspect' });
+		await expect(inspect.locator('.hint')).toContainText('Hover or click');
+
+		// Click the centre of the map — that should hit a node.
+		const mapBox = await page.locator('canvas.maplibregl-canvas').boundingBox();
+		if (!mapBox) throw new Error('map canvas not visible');
+		await page.mouse.click(mapBox.x + mapBox.width / 2, mapBox.y + mapBox.height / 2);
+
+		await expect(inspect.locator('.badge.node')).toBeVisible({ timeout: 5_000 });
+		await expect(inspect.locator('code.id')).not.toBeEmpty();
 	});
 
 	test('flow toggle adds curved flow lines to the map', async ({ page }) => {
@@ -49,7 +106,9 @@ test.describe.serial('app', () => {
 		await expect(page.locator('.status').nth(1)).toContainText(/flow:.*flows/i, {
 			timeout: 15_000
 		});
-		await expect(page.locator('.status').nth(1)).not.toContainText('querying', { timeout: 15_000 });
+		await expect(page.locator('.status').nth(1)).not.toContainText('querying', {
+			timeout: 15_000
+		});
 
 		// Wait for source data to settle, then assert layer + features exist.
 		await page.waitForFunction(
@@ -65,10 +124,11 @@ test.describe.serial('app', () => {
 		);
 	});
 
-	test('scale toggle switches PC4 → gemeente', async ({ page }) => {
-		await expect(page.locator('.status')).toContainText('PC4s');
-		await page.locator('.seg label', { hasText: 'Gemeente' }).click();
-		await expect(page.locator('.status')).toContainText('gemeenten', { timeout: 15_000 });
+	test('scale toggle switches gemeente → PC4', async ({ page }) => {
+		// Default scale is gemeente; switch to PC4 and verify the status flips.
+		await expect(page.locator('.status').first()).toContainText('gemeenten');
+		await page.locator('.seg label', { hasText: 'PC4' }).click();
+		await expect(page.locator('.status').first()).toContainText('PC4s', { timeout: 15_000 });
 	});
 
 	test('filter chip toggles affect status reset state', async ({ page }) => {
@@ -87,29 +147,38 @@ test.describe.serial('app', () => {
 			has: page.locator('summary', { hasText: /^Node cartography$/ })
 		});
 		const before = await cartoPanel.locator('.legend .label').allTextContents();
-		const methodSelect = cartoPanel.locator('label.field', { hasText: 'Method' }).locator('select');
+		const methodSelect = cartoPanel
+			.locator('label.field', { hasText: 'Method' })
+			.locator('select');
 		await methodSelect.selectOption({ label: 'Quantile' });
 		await page.waitForTimeout(400);
 		const after = await cartoPanel.locator('.legend .label').allTextContents();
 		expect(after).not.toEqual(before);
 		expect(after.length).toBe(before.length);
+		// Reset to default so sibling tests assert against unchanged breaks.
+		await methodSelect.selectOption({ label: 'Jenks (natural breaks)' });
 	});
 
 	test('print route renders SVG with one path per feature, shares classification', async ({
 		page
 	}) => {
-		// Capture screen-side breaks first.
-		const screenBreaks = await page.locator('.legend .label').allTextContents();
-		await page.click('a.action[href="/print"]');
+		// Capture screen-side node-legend breaks first. Scope to the node
+		// cartography panel so the flow legend (when present) doesn't pollute.
+		const nodeCartoLegend = page
+			.locator('details.panel', { has: page.locator('summary', { hasText: /^Node cartography$/ }) })
+			.locator('.legend');
+		const screenBreaks = await nodeCartoLegend.locator('.label').allTextContents();
+		await page.click('a.tool.print');
 		await page.waitForURL('/print');
 		await expect(page.locator('.sheet svg')).toBeVisible({ timeout: 15_000 });
-		// Should render lots of features (4056 PC4s).
+		// Default scale is gemeente — expect ~342 features.
+		await page.locator('.sheet svg path').first().waitFor({ state: 'attached', timeout: 15_000 });
 		const pathCount = await page.locator('.sheet svg path').count();
-		expect(pathCount).toBeGreaterThan(3000);
+		expect(pathCount).toBeGreaterThan(300);
 		// Title + footer present.
 		await expect(page.locator('.title')).toContainText('Persoonsgegevens');
 		await expect(page.locator('.footnote')).toContainText('EPSG:28992');
-		// Same classification breaks as the screen view.
+		// Same node-classification breaks as the screen view.
 		const printBreaks = await page.locator('.legend .label').allTextContents();
 		expect(printBreaks).toEqual(screenBreaks);
 	});

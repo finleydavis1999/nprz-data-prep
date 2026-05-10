@@ -5,17 +5,19 @@
 import { getDb } from './duckdb.js';
 import { ensureRegistered, num, valueExpr } from './parquet-register.js';
 
-function buildSql(parquetName, valueSql, { yearMin, yearMax, filters = {}, includeSelfLoops }) {
-	const wheres = [`year BETWEEN ${num(yearMin)} AND ${num(yearMax)}`];
+function buildSql(parquetName, valueSql, { yearMin, yearMax, filters = {}, includeSelfLoops, yearRange }) {
+	const wheres = [];
+	if (yearRange) wheres.push(`year BETWEEN ${num(yearMin)} AND ${num(yearMax)}`);
 	for (const [field, values] of Object.entries(filters)) {
 		if (!values || values.length === 0) continue;
 		wheres.push(`${field} IN (${values.map(num).join(',')})`);
 	}
 	if (!includeSelfLoops) wheres.push('o_code <> d_code');
+	const where = wheres.length ? `WHERE ${wheres.join(' AND ')}` : '';
 	return `
 		SELECT o_code AS o, d_code AS d, ${valueSql}
 		FROM read_parquet('${parquetName}')
-		WHERE ${wheres.join(' AND ')}
+		${where}
 		GROUP BY o_code, d_code
 		HAVING SUM(count) > 0
 		ORDER BY value DESC
@@ -32,11 +34,20 @@ export async function runFlows({
 	includeSelfLoops = false
 }) {
 	const { name, entry } = await ensureRegistered({ section: 'flows', dataset, scale });
-	const valueSql = valueExpr({ entry, yearMin, yearMax });
+	const yearRange = entry.fields?.year?.type === 'range';
+	const valueSql = yearRange
+		? valueExpr({ entry, yearMin, yearMax })
+		: 'SUM(count)::DOUBLE AS value';
 	const db = await getDb();
 	const conn = await db.connect();
 	try {
-		const sql = buildSql(name, valueSql, { yearMin, yearMax, filters, includeSelfLoops });
+		const sql = buildSql(name, valueSql, {
+			yearMin,
+			yearMax,
+			filters,
+			includeSelfLoops,
+			yearRange
+		});
 		const result = await conn.query(sql);
 		const flows = [];
 		let min = Infinity;

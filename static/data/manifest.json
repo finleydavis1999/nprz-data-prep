@@ -1,5 +1,5 @@
 {
-  "version": "2026-05-10T20:53:23Z",
+  "version": "2026-05-10T21:15:45Z",
   "datasets": {
     "demographics": {
       "name": "Persoonsgegevens 2018",
@@ -636,7 +636,8 @@
       "name": "Verplaatsingen 2004-2022 (OViN)",
       "description": "Onderzoek Verplaatsingen in Nederland 2004-2022. Per-trip records aggregated to herkomst-bestemming gemeenten. Tellingen = som van factorv (gewogen ritten over de gekozen periode).",
       "scales": {
-        "gem": "parquet/ovin-edges-gem.parquet"
+        "gem": "parquet/ovin-edges-gem.parquet",
+        "pc4": "parquet/ovin-edges-pc4.parquet"
       },
       "fields": {
         "year": {
@@ -810,19 +811,398 @@
         "n": 5,
         "palette": "YlOrRd"
       }
+    },
+    "woonwerk": {
+      "name": "Woon-Werk 1999-2017",
+      "description": "CBS microdata, home <e2><86><92> work commute flows aggregated to herkomst-bestemming. Cells <10 suppressed for privacy.",
+      "scales": {
+        "gem": "parquet/woonwerk-edges-gem.parquet",
+        "pc4": "parquet/woonwerk-edges-pc4.parquet"
+      },
+      "fields": {
+        "year": {
+          "type": "multi",
+          "label": "Periode",
+          "values": [
+            {
+              "id": 1,
+              "label": "2007-2012"
+            },
+            {
+              "id": 2,
+              "label": "2012-2017"
+            },
+            {
+              "id": 3,
+              "label": "2007-2017"
+            }
+          ]
+        },
+        "age": {
+          "type": "multi",
+          "label": "Leeftijd",
+          "values": [
+            {
+              "id": 1,
+              "label": "< 18"
+            },
+            {
+              "id": 2,
+              "label": "18-23"
+            },
+            {
+              "id": 3,
+              "label": "24-29"
+            },
+            {
+              "id": 4,
+              "label": "30-40"
+            },
+            {
+              "id": 5,
+              "label": "40-59"
+            },
+            {
+              "id": 6,
+              "label": "60+"
+            }
+          ]
+        },
+        "opl": {
+          "type": "multi",
+          "label": "Opleiding",
+          "values": [
+            {
+              "id": 1,
+              "label": "Laag"
+            },
+            {
+              "id": 2,
+              "label": "Midden"
+            },
+            {
+              "id": 3,
+              "label": "Hoog"
+            }
+          ]
+        },
+        "inks": {
+          "type": "multi",
+          "label": "Brutoinkomen",
+          "values": [
+            {
+              "id": 1,
+              "label": "< 20%"
+            },
+            {
+              "id": 2,
+              "label": "20-40%"
+            },
+            {
+              "id": 3,
+              "label": "40-60%"
+            },
+            {
+              "id": 4,
+              "label": "60-80%"
+            },
+            {
+              "id": 5,
+              "label": "80-100%"
+            }
+          ]
+        },
+        "soortbaan": {
+          "type": "multi",
+          "label": "Soort baan",
+          "values": [
+            {
+              "id": 1,
+              "label": "DGA"
+            },
+            {
+              "id": 2,
+              "label": "Overig"
+            }
+          ]
+        }
+      }
+    },
+    "werkwerk": {
+      "name": "Baanverhuizingen 1999-2017",
+      "description": "CBS microdata, job <e2><86><92> job moves between successive observed employments. Cells <10 suppressed for privacy.",
+      "scales": {
+        "gem": "parquet/werkwerk-edges-gem.parquet",
+        "pc4": "parquet/werkwerk-edges-pc4.parquet"
+      },
+      "fields": {
+        "year": {
+          "type": "multi",
+          "label": "Periode",
+          "values": [
+            {
+              "id": 1,
+              "label": "2007-2012"
+            },
+            {
+              "id": 2,
+              "label": "2012-2017"
+            },
+            {
+              "id": 3,
+              "label": "2007-2017"
+            }
+          ]
+        },
+        "age": {
+          "type": "multi",
+          "label": "Leeftijd",
+          "values": [
+            {
+              "id": 1,
+              "label": "< 18"
+            },
+            {
+              "id": 2,
+              "label": "18-23"
+            },
+            {
+              "id": 3,
+              "label": "24-29"
+            },
+            {
+              "id": 4,
+              "label": "30-40"
+            },
+            {
+              "id": 5,
+              "label": "40-59"
+            },
+            {
+              "id": 6,
+              "label": "60+"
+            }
+          ]
+        },
+        "opl": {
+          "type": "multi",
+          "label": "Opleiding",
+          "values": [
+            {
+              "id": 1,
+              "label": "Laag"
+            },
+            {
+              "id": 2,
+              "label": "Midden"
+            },
+            {
+              "id": 3,
+              "label": "Hoog"
+            }
+          ]
+        },
+        "inks": {
+          "type": "multi",
+          "label": "Brutoinkomen",
+          "values": [
+            {
+              "id": 1,
+              "label": "< 20%"
+            },
+            {
+              "id": 2,
+              "label": "20-40%"
+            },
+            {
+              "id": 3,
+              "label": "40-60%"
+            },
+            {
+              "id": 4,
+              "label": "60-80%"
+            },
+            {
+              "id": 5,
+              "label": "80-100%"
+            }
+          ]
+        },
+        "soortbaan": {
+          "type": "multi",
+          "label": "Soort baan",
+          "values": [
+            {
+              "id": 1,
+              "label": "DGA"
+            },
+            {
+              "id": 2,
+              "label": "Overig"
+            }
+          ]
+        }
+      }
+    },
+    "migration": {
+      "name": "Verhuizingen 1999-2018",
+      "description": "CBS microdata, residential moves between successive observed addresses. Cells <10 suppressed for privacy.",
+      "scales": {
+        "gem": "parquet/migration-edges-gem.parquet",
+        "pc4": "parquet/migration-edges-pc4.parquet"
+      },
+      "fields": {
+        "year": {
+          "type": "multi",
+          "label": "Periode",
+          "values": [
+            {
+              "id": 1,
+              "label": "1999-2002"
+            },
+            {
+              "id": 2,
+              "label": "2003-2006"
+            },
+            {
+              "id": 3,
+              "label": "2007-2010"
+            },
+            {
+              "id": 4,
+              "label": "2011-2014"
+            },
+            {
+              "id": 5,
+              "label": "2015-2018"
+            },
+            {
+              "id": 6,
+              "label": "1999-2008"
+            },
+            {
+              "id": 7,
+              "label": "2009-2018"
+            }
+          ]
+        },
+        "age": {
+          "type": "multi",
+          "label": "Leeftijd",
+          "values": [
+            {
+              "id": 1,
+              "label": "< 18"
+            },
+            {
+              "id": 2,
+              "label": "18-23"
+            },
+            {
+              "id": 3,
+              "label": "24-29"
+            },
+            {
+              "id": 4,
+              "label": "30-40"
+            },
+            {
+              "id": 5,
+              "label": "40-59"
+            },
+            {
+              "id": 6,
+              "label": "60+"
+            }
+          ]
+        },
+        "hh": {
+          "type": "multi",
+          "label": "Huishouden",
+          "values": [
+            {
+              "id": 1,
+              "label": "Alleenstaand"
+            },
+            {
+              "id": 2,
+              "label": "Paar zonder kinderen"
+            },
+            {
+              "id": 3,
+              "label": "Paar met kinderen"
+            },
+            {
+              "id": 4,
+              "label": "Eenouder"
+            },
+            {
+              "id": 5,
+              "label": "Overig"
+            }
+          ]
+        },
+        "opl": {
+          "type": "multi",
+          "label": "Opleiding",
+          "values": [
+            {
+              "id": 1,
+              "label": "Laag"
+            },
+            {
+              "id": 2,
+              "label": "Midden"
+            },
+            {
+              "id": 3,
+              "label": "Hoog"
+            }
+          ]
+        },
+        "inks": {
+          "type": "multi",
+          "label": "Brutoinkomen",
+          "values": [
+            {
+              "id": 1,
+              "label": "< 20%"
+            },
+            {
+              "id": 2,
+              "label": "20-40%"
+            },
+            {
+              "id": 3,
+              "label": "40-60%"
+            },
+            {
+              "id": 4,
+              "label": "60-80%"
+            },
+            {
+              "id": 5,
+              "label": "80-100%"
+            }
+          ]
+        }
+      }
     }
   },
   "geo": {
     "pc4": {
       "geojson": "geo/pc4.geojson",
       "topojson": "geo/pc4.topo.json",
-      "idProp": "area_code"
+      "centroids": "geo/pc4-centroids.json",
+      "idProp": "area_code",
+      "centroidsRd": "geo/pc4-centroids-rd.json"
     },
     "gem": {
       "geojson": "geo/gemeenten.geojson",
       "topojson": "geo/gemeenten.topo.json",
       "centroids": "geo/gem-centroids.json",
-      "idProp": "area_code"
+      "idProp": "area_code",
+      "centroidsRd": "geo/gem-centroids-rd.json"
     }
   }
 }

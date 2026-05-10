@@ -1,6 +1,8 @@
-# OViN: CBS Onderzoek Verplaatsingen in Nederland 2004-2022, gemeente OD edges.
+# OViN: CBS Onderzoek Verplaatsingen in Nederland 2004-2022, OD edges.
 # Source: raw-data/edges-ovin-2022.sqlite, table ovin20042022 (~2.6M trip rows).
-# Output: static/data/parquet/ovin-edges-gem.parquet
+# Output:
+#   static/data/parquet/ovin-edges-gem.parquet  (uses c_vgemf / c_agemf)
+#   static/data/parquet/ovin-edges-pc4.parquet  (uses c_vpcf  / c_apcf)
 source("R/lib/parquet.R")
 
 build_ovin <- function() {
@@ -25,11 +27,30 @@ build_ovin <- function() {
     ORDER BY year, o_code, d_code
   ", "static/data/parquet/ovin-edges-gem.parquet")
 
+  write_parquet_from_query(con, "
+    SELECT
+      printf('%04d', CAST(c_vpcf AS INTEGER)) AS o_code,
+      printf('%04d', CAST(c_apcf AS INTEGER)) AS d_code,
+      CAST(year AS INTEGER) AS year,
+      CAST(c_motief  AS INTEGER) AS motief,
+      CAST(c_modus   AS INTEGER) AS modus,
+      CAST(c_opl     AS INTEGER) AS opl,
+      CAST(c_hhtype  AS INTEGER) AS hhtype,
+      CAST(c_maatsch AS INTEGER) AS maatsch,
+      SUM(factorv)::DOUBLE AS count,
+      SUM(factorv)::DOUBLE AS weight
+    FROM src.ovin20042022
+    WHERE c_vpcf IS NOT NULL AND c_apcf IS NOT NULL
+    GROUP BY o_code, d_code, year, motief, modus, opl, hhtype, maatsch
+    ORDER BY year, o_code, d_code
+  ", "static/data/parquet/ovin-edges-pc4.parquet")
+
   list(
     name        = "Verplaatsingen 2004-2022 (OViN)",
     description = "Onderzoek Verplaatsingen in Nederland 2004-2022. Per-trip records aggregated to herkomst-bestemming gemeenten. Tellingen = som van factorv (gewogen ritten over de gekozen periode).",
     scales = list(
-      gem = "parquet/ovin-edges-gem.parquet"
+      gem = "parquet/ovin-edges-gem.parquet",
+      pc4 = "parquet/ovin-edges-pc4.parquet"
     ),
     fields = list(
       year = list(
