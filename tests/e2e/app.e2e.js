@@ -52,4 +52,23 @@ test.describe.serial('app', () => {
 		expect(after).not.toEqual(before);
 		expect(after.length).toBe(before.length);
 	});
+
+	test('print route renders SVG with one path per feature, shares classification', async ({
+		page
+	}) => {
+		// Capture screen-side breaks first.
+		const screenBreaks = await page.locator('.legend .label').allTextContents();
+		await page.click('a.action[href="/print"]');
+		await page.waitForURL('/print');
+		await expect(page.locator('.sheet svg')).toBeVisible({ timeout: 15_000 });
+		// Should render lots of features (4056 PC4s).
+		const pathCount = await page.locator('.sheet svg path').count();
+		expect(pathCount).toBeGreaterThan(3000);
+		// Title + footer present.
+		await expect(page.locator('.title')).toContainText('Persoonsgegevens');
+		await expect(page.locator('.footnote')).toContainText('EPSG:28992');
+		// Same classification breaks as the screen view.
+		const printBreaks = await page.locator('.legend .label').allTextContents();
+		expect(printBreaks).toEqual(screenBreaks);
+	});
 });

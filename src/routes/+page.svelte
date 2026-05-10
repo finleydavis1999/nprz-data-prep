@@ -12,68 +12,29 @@
 	import ClassificationControls from '$lib/ui/ClassificationControls.svelte';
 	import Legend from '$lib/cartography/Legend.svelte';
 	import Histogram from '$lib/cartography/Histogram.svelte';
-	import { runChoropleth } from '$lib/data/query.js';
-	import { loadManifest } from '$lib/data/manifest.js';
 	import { classify } from '$lib/cartography/classify.js';
 	import { paletteColors } from '$lib/cartography/palettes.js';
 	import { stepExpression } from '$lib/cartography/expression.js';
 	import { selection } from '$lib/state/selection.svelte.js';
 	import { cartography } from '$lib/state/cartography.svelte.js';
 	import { overlay } from '$lib/state/overlay.svelte.js';
+	import { manifestState } from '$lib/state/manifest.svelte.js';
+	import { queryResult } from '$lib/state/query-result.svelte.js';
 
 	let { data } = $props();
 
-	let manifest = $state(null);
-	let valueByArea = $state(new Map());
-	let querying = $state(false);
-	let lastQueryMs = $state(null);
-	let error = $state(/** @type {string | null} */ (null));
-
-	// Load manifest once.
-	$effect(() => {
-		loadManifest()
-			.then((m) => {
-				manifest = m;
-			})
-			.catch((e) => {
-				error = `manifest: ${e.message}`;
-			});
-	});
-
-	// Re-run query whenever any selection field changes.
-	$effect(() => {
-		if (!manifest) return;
-		const args = {
-			dataset: selection.dataset,
-			scale: selection.scale,
-			year: selection.year,
-			filters: selection.filters
-		};
-		querying = true;
-		error = null;
-		const t0 = performance.now();
-		runChoropleth(args)
-			.then((m) => {
-				valueByArea = m;
-				lastQueryMs = Math.round(performance.now() - t0);
-			})
-			.catch((e) => {
-				error = `query: ${e.message}`;
-			})
-			.finally(() => {
-				querying = false;
-			});
-	});
+	const manifest = $derived(manifestState.data);
 
 	const status = $derived.by(() => {
-		if (error) return error;
-		if (querying) return 'querying…';
+		if (queryResult.error) return queryResult.error;
+		if (manifestState.error) return manifestState.error;
+		if (queryResult.loading || manifestState.loading) return 'querying…';
 		const unit = selection.scale === 'pc4' ? 'PC4s' : 'gemeenten';
-		return `${valueByArea.size.toLocaleString()} ${unit}`;
+		return `${queryResult.data.size.toLocaleString()} ${unit}`;
 	});
 
 	const sortedValues = $derived(
-		[...valueByArea.values()].filter((v) => Number.isFinite(v) && v > 0)
+		[...queryResult.data.values()].filter((v) => Number.isFinite(v) && v > 0)
 	);
 
 	const breaks = $derived.by(() => {
@@ -82,10 +43,8 @@
 	});
 
 	const colors = $derived(breaks ? paletteColors(cartography.palette, cartography.n) : []);
-
 	const fillColor = $derived(breaks ? stepExpression({ breaks, colors }) : '#eee');
 
-	// Geo selectors driven by current scale.
 	const geoMain = $derived(manifest?.geo?.[selection.scale]);
 	const geoOverlay = $derived(overlay.scale ? manifest?.geo?.[overlay.scale] : null);
 </script>
@@ -98,7 +57,7 @@
 					sourceId="choropleth-{selection.scale}"
 					geoUrl="/data/{geoMain.geojson}"
 					promoteId={geoMain.idProp}
-					{valueByArea}
+					valueByArea={queryResult.data}
 					{fillColor}
 					fillOpacity={cartography.fillOpacity}
 					lineColor={cartography.lineColor}
@@ -125,13 +84,22 @@
 	<div class="header">
 		<div class="brand-row">
 			<div class="brand">NPRZ <span class="brand-sub">analytics</span></div>
-			{#if data.user}
-				<form method="POST" action="?/logout" class="logout-form">
-					<button type="submit" class="logout" title="Sign out — {data.user.email}">↪</button>
-				</form>
-			{/if}
+			<div class="actions">
+				<a class="action" href="/print" title="Print preview">⎙</a>
+				{#if data.user}
+					<form method="POST" action="?/logout" class="logout-form">
+						<button type="submit" class="action" title="Sign out — {data.user.email}">↪</button>
+					</form>
+				{/if}
+			</div>
 		</div>
-		<div class="status" class:busy={querying} class:err={error}>{status}</div>
+		<div
+			class="status"
+			class:busy={queryResult.loading}
+			class:err={queryResult.error || manifestState.error}
+		>
+			{status}
+		</div>
 	</div>
 
 	<Panel title="Scale">
@@ -167,8 +135,8 @@
 	</Panel>
 </div>
 
-{#if lastQueryMs !== null}
-	<div class="debug" title="Last query duration">{lastQueryMs} ms</div>
+{#if queryResult.lastMs !== null}
+	<div class="debug" title="Last query duration">{queryResult.lastMs} ms</div>
 {/if}
 
 <style>
@@ -206,18 +174,24 @@
 		justify-content: space-between;
 		gap: var(--spacing-2);
 	}
+	.actions {
+		display: flex;
+		gap: 4px;
+		align-items: center;
+	}
 	.logout-form {
 		margin: 0;
 	}
-	.logout {
+	.action {
 		background: transparent;
 		border: none;
 		color: var(--color-hint);
 		cursor: pointer;
 		font-size: var(--text-sm);
 		padding: 0 4px;
+		text-decoration: none;
 	}
-	.logout:hover {
+	.action:hover {
 		color: var(--color-text);
 	}
 	.status {
