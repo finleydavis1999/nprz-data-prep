@@ -76,7 +76,7 @@ build:
       - build/
     expire_in: 1 day
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH == "main"
 
 build:dev:
   stage: build
@@ -105,11 +105,12 @@ pages:
   script:
     - mv build public
     - cp public/index.html public/404.html
+  pages: true
   artifacts:
     paths:
       - public
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH == "main"
 
 pages:dev:
   stage: deploy
