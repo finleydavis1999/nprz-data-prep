@@ -1,31 +1,29 @@
-## Project Configuration
+# Claude project notes
 
-- **Language**: None
-- **Package Manager**: npm
-- **Add-ons**: prettier, eslint, vitest, playwright, tailwindcss, sveltekit-adapter, better-auth, mcp, drizzle
+See `README.md` for the user-facing run/architecture docs.
 
----
+## House rules
 
-You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
+- **Svelte 5 runes only.** Never use `export let`, `$:`, or `<script context="module">`. Use `$state`, `$derived`, `$derived.by(() => ...)`, `$effect`, `$props()`, snippets via `{@render children?.()}`. Field declarations on classes for singleton state.
+- **Map context** is Symbol-keyed via `src/lib/map/context.js`. Use `setMapContext()` / `getMapContext()` — never `getContext('map')`.
+- **Field rows** use `<Field label="...">{control}</Field>` (`src/lib/ui/Field.svelte`). Don't recreate the `.row` grid.
+- **Browser-only deps** (`maplibre-gl`, `pmtiles`, `@duckdb/duckdb-wasm`) must be dynamically imported inside `onMount`. They touch `window` at module-eval time and break SSR otherwise.
+- **No name shadowing of JS globals** in component imports. `import Map from '$lib/map/Map.svelte'` shadows the JS `Map` class — always rename to `MapView`, `MapSet`, etc.
+- **CSS tokens only.** Every `<style>` block consumes `var(--text-sm)`, `var(--color-muted)`, `var(--spacing-2)` etc. defined in `src/routes/layout.css` `@theme`. No raw `#rrggbb` / `0.85rem` / `8px` literals.
+- **State module suffix `.svelte.js`** for runes-using files (the compiler needs the suffix).
+- **Reactivity for object members**: assign new objects (`s.filters = { ...s.filters, [k]: v }`); deep mutation isn't tracked.
 
-## Available Svelte MCP Tools:
+## Tooling
 
-### 1. list-sections
+- `npm run dev` for the dev server. Use port 47356 in tests/scripts (avoids clashing with parallel projects on 5173).
+- `npm run test:e2e` runs Playwright against an auto-started dev server. Don't write throwaway `smoke.mjs` scripts — extend `tests/e2e/app.e2e.js` instead.
+- `npm run data` rebuilds parquet + geo + manifest. Required after editing R pipeline.
 
-Use this FIRST to discover all available documentation sections. Returns a structured list with titles, use_cases, and paths.
-When asked about Svelte or SvelteKit topics, ALWAYS use this tool at the start of the chat to find relevant sections.
+## Svelte MCP
 
-### 2. get-documentation
+The Svelte MCP server is available with these tools:
 
-Retrieves full documentation content for specific sections. Accepts single or multiple sections.
-After calling the list-sections tool, you MUST analyze the returned documentation sections (especially the use_cases field) and then use the get-documentation tool to fetch ALL documentation sections that are relevant for the user's task.
-
-### 3. svelte-autofixer
-
-Analyzes Svelte code and returns issues and suggestions.
-You MUST use this tool whenever writing Svelte code before sending it to the user. Keep calling it until no issues or suggestions are returned.
-
-### 4. playground-link
-
-Generates a Svelte Playground link with the provided code.
-After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
+1. `list-sections` — call first to discover docs sections.
+2. `get-documentation` — fetch full docs for relevant sections (use after list-sections).
+3. `svelte-autofixer` — run on every Svelte snippet you write before sending; loop until clean.
+4. `playground-link` — only on user request, only for snippets not written to files.

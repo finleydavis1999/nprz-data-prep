@@ -12,14 +12,26 @@
 		"format": "prettier --write .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
-		"test:e2e": "playwright install && playwright test",
-		"data": "Rscript R/build.R"
+		"test:e2e": "playwright test",
+		"test:e2e:install": "playwright install",
+		"data": "Rscript R/build.R",
+		"users:seed": "node scripts/seed-users.js"
+	},
+	"dependencies": {
+		"@duckdb/duckdb-wasm": "^1.33.1-dev45.0",
+		"better-auth": "~1.4.21",
+		"better-sqlite3": "^12.0.0",
+		"chroma-js": "^3.2.0",
+		"maplibre-gl": "^5.24.0",
+		"pmtiles": "^4.4.1",
+		"protomaps-themes-base": "^4.5.0",
+		"simple-statistics": "^7.8.9",
+		"svelteplot": "^0.14.2"
 	},
 	"devDependencies": {
 		"@better-auth/cli": "~1.4.21",
 		"@eslint/compat": "^2.0.4",
 		"@eslint/js": "^10.0.1",
-		"better-sqlite3": "^12.0.0",
 		"@playwright/test": "^1.59.1",
 		"@sveltejs/adapter-node": "^5.5.4",
 		"@sveltejs/kit": "^2.57.0",
@@ -29,7 +41,6 @@
 		"@tailwindcss/vite": "^4.2.2",
 		"@types/node": "^22",
 		"@vitest/browser-playwright": "^4.1.3",
-		"better-auth": "~1.4.21",
 		"eslint": "^10.2.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.17.0",

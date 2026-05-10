@@ -29,3 +29,6 @@ test-results
 # Generated data (rebuild with `npm run data`)
 /static/data/
 /raw-data
+
+# Hardcoded users for `npm run users:seed` (commit only seed-users.json.example)
+/seed-users.json

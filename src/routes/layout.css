@@ -1,3 +1,65 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+/* Design tokens — exposed as CSS custom properties at :root via Tailwind v4's
+   @theme block. Consumed both by Tailwind utilities and by component <style>
+   blocks. Single source of truth for typography, color, spacing, radius. */
+@theme {
+	--font-sans:
+		system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+	/* Type scale: xs for tiny meta (axis labels, chip text), sm for secondary
+	   labels, base for body. */
+	--text-xs: 11px;
+	--text-sm: 13px;
+	--text-base: 14px;
+
+	/* Greys — text/muted/hint/line. Accent is neutral dark, same role #444 played. */
+	--color-text: #1f2328;
+	--color-muted: #57606a;
+	--color-hint: #8c959f;
+	--color-line: #d0d7de;
+	--color-accent: #1f2328;
+	--color-accent-fg: #ffffff;
+	--color-bg-panel: rgba(255, 255, 255, 0.95);
+
+	/* Spacing — 4 px scale. */
+	--spacing-1: 4px;
+	--spacing-2: 8px;
+	--spacing-3: 12px;
+	--spacing-4: 16px;
+}
+
+:root {
+	/* Layout-only tokens that don't need Tailwind utilities. */
+	--label-col: 92px;
+	--radius: 6px;
+	--radius-pill: 999px;
+}
+
+html,
+body {
+	font-family: var(--font-sans);
+	font-size: var(--text-base);
+	color: var(--color-text);
+	margin: 0;
+	padding: 0;
+}
+
+/* @tailwindcss/forms hard-codes `font-size: 1rem` and chunky padding on form
+   elements. Restore inheritance so they match the surrounding row density. */
+input,
+select,
+textarea,
+button {
+	font-size: inherit;
+	font-family: inherit;
+}
+select,
+input[type='text'],
+input[type='number'],
+input[type='search'] {
+	padding-block: 2px;
+	padding-inline: 6px;
+}
