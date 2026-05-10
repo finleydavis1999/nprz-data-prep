@@ -7,7 +7,7 @@ const config = {
 		runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true)
 	},
 	kit: {
-		adapter: adapter({ fallback: '200.html' }),
+		adapter: adapter({ fallback: 'index.html' }),
 		paths: { base: process.env.BASE_PATH ?? '' },
 		typescript: {
 			config: (config) => ({
