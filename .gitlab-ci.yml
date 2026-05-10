@@ -78,23 +78,6 @@ build:
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
 
-build:dev:
-  stage: build
-  needs:
-    - install
-  script:
-    # Parallel Pages deployment lives under /dev on the unique-domain host,
-    # so BASE_PATH must match for asset paths to resolve.
-    - export BASE_PATH="/dev"
-    - echo "Building with BASE_PATH='$BASE_PATH'"
-    - npm run build
-  artifacts:
-    paths:
-      - build/
-    expire_in: 1 day
-  rules:
-    - if: $CI_COMMIT_BRANCH == "dev"
-
 pages:
   stage: deploy
   needs:
@@ -111,21 +94,3 @@ pages:
       - public
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
-
-pages:dev:
-  stage: deploy
-  needs:
-    - build:dev
-    - lint
-    - test:unit
-    - test:e2e
-  script:
-    - mv build public
-    - cp public/index.html public/404.html
-  pages:
-    path_prefix: 'dev'
-  artifacts:
-    paths:
-      - public
-  rules:
-    - if: $CI_COMMIT_BRANCH == "dev"
