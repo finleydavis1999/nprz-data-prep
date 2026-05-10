@@ -21,7 +21,7 @@ test.describe.serial('app', () => {
 		await expect(page.locator('.brand')).toContainText('NPRZ');
 		await expect(page.locator('.status')).toContainText(/PC4s|gemeenten/);
 		const titles = await page.locator('details.panel summary').allTextContents();
-		expect(titles).toEqual(['Scale', 'Data', 'Cartography', 'Boundary overlay']);
+		expect(titles).toEqual(['Scale', 'Data', 'Cartography', 'Study area', 'Boundary overlay']);
 
 		await page.waitForTimeout(500);
 		expect(errors.filter((e) => !/sourcemap/i.test(e))).toEqual([]);

@@ -1,14 +1,17 @@
 <script>
+	import { onMount } from 'svelte';
 	import { PUBLIC_PROTOMAPS_API_KEY } from '$env/static/public';
 	import MapView from '$lib/map/Map.svelte';
 	import ChoroplethLayer from '$lib/map/ChoroplethLayer.svelte';
 	import BoundaryLayer from '$lib/map/BoundaryLayer.svelte';
+	import LassoTool from '$lib/map/LassoTool.svelte';
 	import Panel from '$lib/ui/Panel.svelte';
 	import ScaleToggle from '$lib/ui/ScaleToggle.svelte';
 	import DatasetPicker from '$lib/ui/DatasetPicker.svelte';
 	import YearPicker from '$lib/ui/YearPicker.svelte';
 	import CategoryFilters from '$lib/ui/CategoryFilters.svelte';
 	import OverlayControls from '$lib/ui/OverlayControls.svelte';
+	import StudyAreaControls from '$lib/ui/StudyAreaControls.svelte';
 	import ClassificationControls from '$lib/ui/ClassificationControls.svelte';
 	import Legend from '$lib/cartography/Legend.svelte';
 	import Histogram from '$lib/cartography/Histogram.svelte';
@@ -20,8 +23,18 @@
 	import { overlay } from '$lib/state/overlay.svelte.js';
 	import { manifestState } from '$lib/state/manifest.svelte.js';
 	import { queryResult } from '$lib/state/query-result.svelte.js';
+	import { studyArea } from '$lib/state/study-area.svelte.js';
 
 	let { data } = $props();
+	let lassoActive = $state(false);
+
+	onMount(() => {
+		studyArea.init();
+	});
+
+	$effect(() => {
+		studyArea.bindToScale(selection.scale);
+	});
 
 	const manifest = $derived(manifestState.data);
 
@@ -58,10 +71,15 @@
 					geoUrl="/data/{geoMain.geojson}"
 					promoteId={geoMain.idProp}
 					valueByArea={queryResult.data}
+					selectedIds={studyArea.ids}
 					{fillColor}
 					fillOpacity={cartography.fillOpacity}
 					lineColor={cartography.lineColor}
 					lineWidth={cartography.lineWidth}
+				/>
+				<LassoTool
+					active={lassoActive}
+					fillLayerId="choropleth-{selection.scale}-fill"
 				/>
 			{/key}
 			{#if geoOverlay}
@@ -128,6 +146,10 @@
 				<Legend {breaks} {colors} />
 			{/if}
 		</div>
+	</Panel>
+
+	<Panel title="Study area" open={false}>
+		<StudyAreaControls bind:lassoActive />
 	</Panel>
 
 	<Panel title="Boundary overlay" open={false}>

@@ -7,6 +7,7 @@
 		geoUrl,
 		promoteId = 'area_code',
 		valueByArea = new Map(),
+		selectedIds = new Set(),
 		// Step 5 will replace this with a classification-driven `step` expression.
 		fillColor = [
 			'case',
@@ -34,6 +35,7 @@
 	const lineId = $derived(`${sourceId}-line`);
 	let installed = false;
 	let sourceLoaded = false;
+	let prevSelected = new Set();
 
 	function applyValues() {
 		const map = ctx.map;
@@ -41,6 +43,22 @@
 		for (const [areaCode, value] of valueByArea) {
 			map.setFeatureState({ source: sourceId, id: areaCode }, { value });
 		}
+	}
+
+	function applySelection() {
+		const map = ctx.map;
+		if (!map || !installed || !sourceLoaded) return;
+		for (const id of selectedIds) {
+			if (!prevSelected.has(id)) {
+				map.setFeatureState({ source: sourceId, id }, { selected: true });
+			}
+		}
+		for (const id of prevSelected) {
+			if (!selectedIds.has(id)) {
+				map.removeFeatureState({ source: sourceId, id }, 'selected');
+			}
+		}
+		prevSelected = new Set(selectedIds);
 	}
 
 	onMount(() => {
@@ -68,6 +86,7 @@
 			if (e.sourceId === sourceId && e.isSourceLoaded) {
 				sourceLoaded = true;
 				applyValues();
+				applySelection();
 			}
 		};
 		map.on('sourcedata', onSourceData);
@@ -81,12 +100,29 @@
 	});
 
 	$effect(() => {
+		void selectedIds;
+		applySelection();
+	});
+
+	$effect(() => {
 		const map = ctx.map;
 		if (!map || !installed) return;
+		const hasSelection = selectedIds.size > 0;
+		const fillOpacityPaint = hasSelection
+			? [
+					'case',
+					['==', ['feature-state', 'selected'], true],
+					fillOpacity,
+					fillOpacity * 0.25
+				]
+			: fillOpacity;
+		const lineWidthPaint = hasSelection
+			? ['case', ['==', ['feature-state', 'selected'], true], lineWidth * 3, lineWidth]
+			: lineWidth;
 		map.setPaintProperty(fillId, 'fill-color', fillColor);
-		map.setPaintProperty(fillId, 'fill-opacity', fillOpacity);
+		map.setPaintProperty(fillId, 'fill-opacity', fillOpacityPaint);
 		map.setPaintProperty(lineId, 'line-color', lineColor);
-		map.setPaintProperty(lineId, 'line-width', lineWidth);
+		map.setPaintProperty(lineId, 'line-width', lineWidthPaint);
 	});
 
 	onDestroy(() => {
