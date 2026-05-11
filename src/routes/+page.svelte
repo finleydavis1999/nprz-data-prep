@@ -79,11 +79,24 @@
 	);
 	let flowQuerying = $state(false);
 	let flowError = $state(/** @type {string | null} */ (null));
-	// Auto-set minWeight to the ~70th percentile on the first non-empty flow
-	// query so the user lands on the top ~30% of flows. Subsequent queries keep
-	// the user's slider position (clamped to the new max).
-	let flowMinWeightInitialized = false;
-	const FLOW_DEFAULT_TOP_FRACTION = 0.3;
+	// Auto-set minWeight to a high percentile on the first non-empty flow query,
+	// and re-anchor whenever the user switches dataset/scale ("layer switch") —
+	// otherwise a stale threshold can leave nearly every flow visible on the new
+	// layer (or, when it falls above the new max, drop to zero and show all).
+	// Within the same layer, the user's slider position is preserved; only
+	// out-of-range values get re-anchored.
+	let prevFlowLayerSignature = '';
+	const FLOW_DEFAULT_TOP_FRACTION = 0.1;
+	/**
+	 * @param {{value:number}[]} flows
+	 * @param {number} topFraction
+	 */
+	function flowPercentileThreshold(flows, topFraction) {
+		if (flows.length === 0) return 0;
+		const sorted = flows.map((f) => f.value).sort((a, b) => a - b);
+		const idx = Math.min(Math.floor(sorted.length * (1 - topFraction)), sorted.length - 1);
+		return sorted[idx] ?? 0;
+	}
 
 	onMount(() => {
 		ui.load();
@@ -132,17 +145,19 @@
 		};
 		flowQuerying = true;
 		flowError = null;
+		const layerSignature = `${flow.dataset}|${flow.scale}`;
+		const layerChanged = layerSignature !== prevFlowLayerSignature;
+		prevFlowLayerSignature = layerSignature;
 		runFlows(args)
 			.then((res) => {
 				flowResult = res;
-				if (!flowMinWeightInitialized && res.flows.length > 0) {
-					const sorted = res.flows.map((f) => f.value).sort((a, b) => a - b);
-					const idx = Math.floor(sorted.length * (1 - FLOW_DEFAULT_TOP_FRACTION));
-					flow.minWeight = sorted[idx] ?? 0;
-					flowMinWeightInitialized = true;
-				} else if (flow.minWeight > res.max) {
-					// New result doesn't reach the user's threshold — drop to 0.
-					flow.minWeight = 0;
+				if (res.flows.length === 0) {
+					// Nothing to anchor against; leave threshold for next non-empty result.
+				} else if (layerChanged || flow.minWeight > res.max) {
+					// Layer switch, or user's saved threshold is out of range for the
+					// new result — re-anchor at the percentile instead of dropping
+					// to zero (which would render every flow).
+					flow.minWeight = flowPercentileThreshold(res.flows, FLOW_DEFAULT_TOP_FRACTION);
 				}
 			})
 			.catch((e) => {

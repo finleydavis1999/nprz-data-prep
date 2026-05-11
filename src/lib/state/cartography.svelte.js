@@ -3,7 +3,7 @@
 class CartographyState {
 	method = $state('jenks');
 	n = $state(5);
-	palette = $state('YlOrRd');
+	palette = $state('Blues');
 	fillOpacity = $state(0.75);
 	lineColor = $state('#666');
 	lineWidth = $state(0.4);
