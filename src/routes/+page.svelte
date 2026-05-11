@@ -1,7 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
-	import { base } from '$app/paths';
 	import { PUBLIC_PROTOMAPS_API_KEY } from '$env/static/public';
+	import { dataUrl } from '$lib/data/url.js';
 	import MapView from '$lib/map/Map.svelte';
 	import ChoroplethLayer from '$lib/map/ChoroplethLayer.svelte';
 	import BoundaryLayer from '$lib/map/BoundaryLayer.svelte';
@@ -27,6 +27,7 @@
 	import FlowPies from '$lib/map/FlowPies.svelte';
 	import Legend from '$lib/cartography/Legend.svelte';
 	import { runFlows } from '$lib/data/flowQuery.js';
+	import { schedulePrefetch } from '$lib/data/prefetch.js';
 	import { classify } from '$lib/cartography/classify.js';
 	import { paletteColors } from '$lib/cartography/palettes.js';
 	import { stepExpression } from '$lib/cartography/expression.js';
@@ -87,6 +88,7 @@
 	onMount(() => {
 		ui.load();
 		studyArea.init();
+		schedulePrefetch();
 	});
 
 	$effect(() => {
@@ -98,8 +100,9 @@
 	$effect(() => {
 		const scale = flow.scale;
 		const path = manifest?.geo?.[scale]?.centroids;
-		if (!path || centroidsByScale[scale]) return;
-		fetch(`${base}/data/${path}`)
+		const version = manifest?.version;
+		if (!path || !version || centroidsByScale[scale]) return;
+		fetch(dataUrl(path, version))
 			.then((r) => {
 				if (!r.ok) throw new Error(`HTTP ${r.status}`);
 				return r.json();
@@ -226,7 +229,7 @@
 			{#key selection.scale}
 				<ChoroplethLayer
 					sourceId="choropleth-{selection.scale}"
-					geoUrl="{base}/data/{geoMain.geojson}"
+					geoUrl={dataUrl(geoMain.geojson, manifest.version)}
 					promoteId={geoMain.idProp}
 					valueByArea={displayed.data}
 					selectedIds={studyArea.ids}
@@ -244,7 +247,7 @@
 				{#key overlay.scale}
 					<BoundaryLayer
 						sourceId="overlay-{overlay.scale}"
-						geoUrl="{base}/data/{geoOverlay.geojson}"
+						geoUrl={dataUrl(geoOverlay.geojson, manifest.version)}
 						promoteId={geoOverlay.idProp}
 						lineColor={overlay.color}
 						lineWidth={overlay.width}

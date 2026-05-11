@@ -25,6 +25,11 @@ export default defineConfig([
 	},
 
 	{
+		files: ['src/service-worker.js'],
+		languageOptions: { globals: { ...globals.serviceworker } }
+	},
+
+	{
 		// Override or add rule settings here, such as:
 		// 'svelte/button-has-type': 'error'
 		rules: {}

@@ -5,6 +5,7 @@
 import { getDb, duckdbNamespace } from './duckdb.js';
 import { initCache, getOrFetch } from './opfs-cache.js';
 import { loadManifest } from './manifest.js';
+import { dataUrl } from './url.js';
 
 const registered = new Map();
 
@@ -25,7 +26,7 @@ async function registerParquet({ section, dataset, scale }) {
 	if (!relPath) throw new Error(`no scale '${scale}' for ${section}.${dataset}`);
 
 	const versionRoot = await initCache(manifest.version);
-	const handle = await getOrFetch(versionRoot, relPath, `/data/${relPath}`);
+	const handle = await getOrFetch(versionRoot, relPath, dataUrl(relPath, manifest.version));
 
 	const db = await getDb();
 	const duckdb = await duckdbNamespace();

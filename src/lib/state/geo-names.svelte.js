@@ -9,7 +9,7 @@
 // different scale — used when on PC4 but flows are gem-scale.
 import { SvelteMap } from 'svelte/reactivity';
 import { geoContains } from 'd3-geo';
-import { base } from '$app/paths';
+import { dataUrl } from '$lib/data/url.js';
 import { manifestState } from './manifest.svelte.js';
 
 class GeoNamesState {
@@ -26,10 +26,11 @@ class GeoNamesState {
 		const existing = this.#inflight.get(scale);
 		if (existing) return existing;
 		const path = manifestState.data?.geo?.[scale]?.geojson;
-		if (!path) return;
+		const version = manifestState.data?.version;
+		if (!path || !version) return;
 		const p = (async () => {
 			try {
-				const res = await fetch(`${base}/data/${path}`);
+				const res = await fetch(dataUrl(path, version));
 				if (!res.ok) return;
 				const gj = await res.json();
 				/** @type {Map<string, string>} */

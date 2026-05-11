@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
-	import { base, resolve } from '$app/paths';
+	import { resolve } from '$app/paths';
+	import { dataUrl } from '$lib/data/url.js';
 	import PrintMap from '$lib/print/PrintMap.svelte';
 	import Legend from '$lib/cartography/Legend.svelte';
 	import { downloadSvg } from '$lib/print/export.js';
@@ -57,8 +58,9 @@
 	$effect(() => {
 		if (!manifest || !flow.enabled || centroids) return;
 		const path = manifest?.geo?.[flow.scale]?.centroidsRd;
-		if (!path) return;
-		fetch(`${base}/data/${path}`)
+		const version = manifest?.version;
+		if (!path || !version) return;
+		fetch(dataUrl(path, version))
 			.then((r) => (r.ok ? r.json() : null))
 			.then((json) => {
 				centroids = json;
@@ -143,7 +145,7 @@
 		<div class="map" bind:this={mapWrap}>
 			{#if geo && breaks}
 				<PrintMap
-					topojsonUrl="{base}/data/{geo.topojson}"
+					topojsonUrl={dataUrl(geo.topojson, manifest.version)}
 					valueByArea={displayed.data}
 					{breaks}
 					{colors}
