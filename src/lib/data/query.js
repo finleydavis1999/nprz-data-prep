@@ -7,29 +7,35 @@
 import { getDb } from './duckdb.js';
 import { ensureRegistered, num, valueExpr } from './parquet-register.js';
 
-function buildSql(parquetName, valueSql, { year, filters = {} }) {
+function buildSql(parquetName, valueSql, { year, filters = {}, needsGroupBy = true }) {
 	const wheres = [`year = ${num(year)}`];
 	for (const [field, values] of Object.entries(filters)) {
 		if (!values || values.length === 0) continue;
-		// Field names come from the trusted manifest, not user input.
+		if (field === 'variable') continue;
 		wheres.push(`${field} IN (${values.map(num).join(',')})`);
 	}
+	const groupBy = needsGroupBy ? 'GROUP BY area_code' : '';
 	return `
 		SELECT area_code, ${valueSql}
 		FROM read_parquet('${parquetName}')
 		WHERE ${wheres.join(' AND ')}
-		GROUP BY area_code
+		${groupBy}
 	`;
 }
 
-// Run a choropleth query and return Map<areaCode, value>.
 export async function runChoropleth({ dataset, scale, year, filters }) {
 	const { name, entry } = await ensureRegistered({ section: 'datasets', dataset, scale });
-	const valueSql = valueExpr({ entry, yearMin: year, yearMax: year });
+	const selectedVar = filters?.variable?.[0];
+	const effectiveEntry = selectedVar
+		? { ...entry, countCol: selectedVar }
+		: entry;
+	const valueSql = valueExpr({ entry: effectiveEntry, yearMin: year, yearMax: year });
+	// CBS pre-aggregated parquets have one row per area — no GROUP BY needed
+	const needsGroupBy = (effectiveEntry.countCol ?? 'count') === 'count';
 	const db = await getDb();
 	const conn = await db.connect();
 	try {
-		const sql = buildSql(name, valueSql, { year, filters });
+		const sql = buildSql(name, valueSql, { year, filters, needsGroupBy });
 		const result = await conn.query(sql);
 		const map = new Map();
 		for (const row of result) {

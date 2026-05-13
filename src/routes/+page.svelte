@@ -22,6 +22,7 @@
 	import FloatingDock from '$lib/ui/FloatingDock.svelte';
 	import DockToggleStrip from '$lib/ui/DockToggleStrip.svelte';
 	import InspectPanel from '$lib/ui/InspectPanel.svelte';
+	import VariablePicker from '$lib/ui/VariablePicker.svelte';
 	import InspectInteraction from '$lib/map/InspectInteraction.svelte';
 	import NodeNamesLayer from '$lib/map/NodeNamesLayer.svelte';
 	import FlowPies from '$lib/map/FlowPies.svelte';
@@ -333,17 +334,18 @@
 	</Panel>
 
 	<Panel title="Node data">
-		{#if manifest}
-			<div class="stack">
-				<DatasetPicker {manifest} />
-				<YearPicker {manifest} />
-				<CategoryFilters {manifest} />
-				<div class="save-divider"></div>
-				<SaveLayerInput {manifest} />
-			</div>
-		{:else}
-			<p class="hint">Loading manifest…</p>
-		{/if}
+	{#if manifest}
+		<div class="stack">
+			<DatasetPicker {manifest} />
+			<YearPicker {manifest} />
+			<VariablePicker {manifest} />
+			<CategoryFilters {manifest} />
+			<div class="save-divider"></div>
+			<SaveLayerInput {manifest} />
+		</div>
+	{:else}
+		<p class="hint">Loading manifest…</p>
+	{/if}
 	</Panel>
 
 	<Panel title="Flow data" open={false}>
@@ -360,6 +362,7 @@
 					</p>
 				{/if}
 				<YearPicker {manifest} state={flow} section="flows" />
+				<VariablePicker {manifest} state={flow} section="flows" />
 				<CategoryFilters {manifest} state={flow} section="flows" />
 				<Field label="Min weight" value={flow.minWeight.toFixed(flowMaxValue < 100 ? 1 : 0)}>
 					<input
