@@ -1,11 +1,17 @@
-// Shared parquet-registration helpers used by both choropleth (`query.js`) and
-// flow (`flowQuery.js`) queries. Resolves a manifest entry → fetches via OPFS
-// cache → registers a stable filename inside DuckDB-WASM so SQL can do
-// `read_parquet('<name>')`.
+import { getDb, duckdbNamespace } from './duckdb.js';
+import { initCache, getOrFetch } from './opfs-cache.js';
 import { loadManifest } from './manifest.js';
 import { dataUrl } from './url.js';
 
 const registered = new Map();
+
+let registrationQueue = Promise.resolve();
+
+function enqueueRegistration(fn) {
+	const next = registrationQueue.then(fn);
+	registrationQueue = next.catch(() => {});
+	return next;
+}
 
 export async function ensureRegistered({ section, dataset, scale }) {
 	const key = `${section}-${dataset}-${scale}`;
@@ -20,13 +26,24 @@ async function registerParquet({ section, dataset, scale }) {
 	const relPath = entry.scales[scale];
 	if (!relPath) throw new Error(`no scale '${scale}' for ${section}.${dataset}`);
 
+	const name = `${section}-${dataset}-${scale}.parquet`;
+
+	if (import.meta.env.DEV) {
+		const url = `${window.location.origin}/data/${relPath}`;
+		return { name: url, entry };
+	}
+
 	const versionRoot = await initCache(manifest.version);
 	const handle = await getOrFetch(versionRoot, relPath, dataUrl(relPath, manifest.version));
 
-	const db = await getDb();
-	const duckdb = await duckdbNamespace();
-	const name = `${section}-${dataset}-${scale}.parquet`;
-	await db.registerFileHandle(name, handle, duckdb.DuckDBDataProtocol.BROWSER_FSACCESS, true);
+	await enqueueRegistration(async () => {
+		const db = await getDb();
+		const duckdb = await duckdbNamespace();
+		await db.registerFileHandle(
+			name, handle, duckdb.DuckDBDataProtocol.BROWSER_FSACCESS, true
+		);
+	});
+
 	return { name, entry };
 }
 
@@ -51,7 +68,9 @@ export function valueExpr({ entry, yearMin, yearMax, alias = 'value' }) {
 	}
 	let expr;
 	if (isRawCount) {
-		expr = divisor === 1 ? `SUM(count)::DOUBLE` : `(SUM(count)::DOUBLE / ${divisor})`;
+		expr = divisor === 1
+			? `SUM(count)::DOUBLE`
+			: `(SUM(count)::DOUBLE / ${divisor})`;
 	} else {
 		expr = `"${col}"::DOUBLE`;
 	}

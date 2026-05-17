@@ -215,17 +215,7 @@
               "label": "80-100%"
             }
           ]
-        },
-        "sec": {
-"type": "multi",
-"label": "Sociaaleconomische positie",
-"values": [
-{ "id": 1, "label": "Actief (werkend, DGA, zelfstand of overig actief)" },
-{ "id": 2, "label": "Ontvanger uitkering (excl. pensioen)" },
-{ "id": 3, "label": "Pensioen" },
-{ "id": 4, "label": "Scholier/student" }
-]
-}
+        }
       },
       "countCol": "count",
       "weightCol": "weight",
@@ -640,10 +630,10 @@
         "palette": "YlOrRd"
       }
     },
-  "cbs-census-pc4": {
+"cbs-census-pc4": {
   "name": "CBS Vierkantstatistieken 2024 (PC4)",
   "description": "CBS 100m grid geaggregeerd naar PC4. Bevolking, huishoudens, woningen, uitkeringen, herkomst.",
-  "scales": { "pc4": "parquet/cbs-grid100-pc4.parquet" },
+  "scales": { "pc4": "parquet/cbs-census-pc4.parquet" },
   "fields": {
     "year": {
       "type": "single",
@@ -689,7 +679,7 @@
 "cbs-census-gem": {
   "name": "CBS Kerncijfers Buurten 2024 (Gemeente)",
   "description": "CBS kerncijfers buurten geaggregeerd naar gemeente. Uitkeringen, studenten, bereikbaarheid, woningwaarde, herkomst.",
-  "scales": { "gem": "parquet/cbs-buurt-gem.parquet" },
+  "scales": { "gem": "parquet/cbs-census-gem.parquet" },
   "fields": {
     "year": {
       "type": "single",
