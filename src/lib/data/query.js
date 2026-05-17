@@ -26,9 +26,7 @@ function buildSql(parquetName, valueSql, { year, filters = {}, needsGroupBy = tr
 export async function runChoropleth({ dataset, scale, year, filters }) {
 	const { name, entry } = await ensureRegistered({ section: 'datasets', dataset, scale });
 	const selectedVar = filters?.variable?.[0];
-	const effectiveEntry = selectedVar
-		? { ...entry, countCol: selectedVar }
-		: entry;
+	const effectiveEntry = selectedVar ? { ...entry, countCol: selectedVar } : entry;
 	const valueSql = valueExpr({ entry: effectiveEntry, yearMin: year, yearMax: year });
 	// CBS pre-aggregated parquets have one row per area — no GROUP BY needed
 	const needsGroupBy = (effectiveEntry.countCol ?? 'count') === 'count';

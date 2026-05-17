@@ -334,18 +334,18 @@
 	</Panel>
 
 	<Panel title="Node data">
-	{#if manifest}
-		<div class="stack">
-			<DatasetPicker {manifest} />
-			<YearPicker {manifest} />
-			<VariablePicker {manifest} />
-			<CategoryFilters {manifest} />
-			<div class="save-divider"></div>
-			<SaveLayerInput {manifest} />
-		</div>
-	{:else}
-		<p class="hint">Loading manifest…</p>
-	{/if}
+		{#if manifest}
+			<div class="stack">
+				<DatasetPicker {manifest} />
+				<YearPicker {manifest} />
+				<VariablePicker {manifest} />
+				<CategoryFilters {manifest} />
+				<div class="save-divider"></div>
+				<SaveLayerInput {manifest} />
+			</div>
+		{:else}
+			<p class="hint">Loading manifest…</p>
+		{/if}
 	</Panel>
 
 	<Panel title="Flow data" open={false}>

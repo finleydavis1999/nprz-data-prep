@@ -5,10 +5,10 @@
 	let { manifest, state = selection, section = 'datasets', label = 'Dataset' } = $props();
 
 	const options = $derived(
-    Object.entries(manifest?.[section] ?? {})
-        .filter(([, ds]) => !state.scale || ds.scales?.[state.scale] !== undefined)
-        .map(([id, ds]) => ({ id, label: ds.name ?? id }))
-);
+		Object.entries(manifest?.[section] ?? {})
+			.filter(([, ds]) => !state.scale || ds.scales?.[state.scale] !== undefined)
+			.map(([id, ds]) => ({ id, label: ds.name ?? id }))
+	);
 
 	// Switching datasets: clear filters (fields differ between datasets) and
 	// clamp single-year selections to the new dataset's value list so the
@@ -25,7 +25,6 @@
 			}
 		}
 	}
-	
 </script>
 
 <Field {label}>
@@ -35,4 +34,3 @@
 		{/each}
 	</select>
 </Field>
-
