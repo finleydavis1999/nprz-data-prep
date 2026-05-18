@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "version": "2026-05-20T07:42:27Z",
+=======
+  "version": "2026-05-18T17:00:00Z",
+>>>>>>> fcf7cc0 (feat: buurt scale, multi-year CBS census, gemeente grid aggregation)
   "datasets": {
     "demographics": {
       "name": "Persoonsgegevens 2018",
@@ -631,9 +635,10 @@
       }
     },
 "cbs-census-pc4": {
-  "name": "CBS Vierkantstatistieken 2024 (PC4)",
-  "description": "CBS 100m grid geaggregeerd naar PC4. Bevolking, huishoudens, woningen, uitkeringen, herkomst.",
+  "name": "CBS Vierkantstatistieken (PC4)",
+  "description": "CBS 100m grid geaggregeerd naar PC4. Jaar: 2024. Huishoudsamenstelling, geslacht, leeftijd, woningen, uitkeringen. Herkomst-% niet beschikbaar vanwege CBS-geheimhouding op gridniveau.",
   "scales": { "pc4": "parquet/cbs-census-pc4.parquet" },
+  "needsGroupBy": false,
   "fields": {
     "year": {
       "type": "single",
@@ -645,28 +650,25 @@
       "type": "single",
       "label": "Variabele",
       "values": [
-        { "id": "aantal_inwoners", "label": "Inwoners totaal" },
-        { "id": "aantal_mannen", "label": "Mannen" },
-        { "id": "aantal_vrouwen", "label": "Vrouwen" },
-        { "id": "aantal_inwoners_0_tot_15_jaar", "label": "Inwoners 0–15 jaar" },
-        { "id": "aantal_inwoners_15_tot_25_jaar", "label": "Inwoners 15–25 jaar" },
-        { "id": "aantal_inwoners_25_tot_45_jaar", "label": "Inwoners 25–45 jaar" },
-        { "id": "aantal_inwoners_45_tot_65_jaar", "label": "Inwoners 45–65 jaar" },
-        { "id": "aantal_inwoners_65_jaar_en_ouder", "label": "Inwoners 65+" },
-        { "id": "aantal_part_huishoudens", "label": "Particuliere huishoudens" },
-        { "id": "aantal_eenpersoonshuishoudens", "label": "Eenpersoonshuishoudens" },
-        { "id": "aantal_meerpersoonshuishoudens_zonder_kind", "label": "Meerpersoonshuishoudens zonder kind" },
-        { "id": "aantal_eenouderhuishoudens", "label": "Eenouderhuishoudens" },
-        { "id": "aantal_tweeouderhuishoudens", "label": "Tweeouderhuishoudens" },
-        { "id": "aantal_woningen", "label": "Woningen totaal" },
-        { "id": "aantal_huurwoningen_in_bezit_woningcorporaties", "label": "Sociale huurwoningen" },
-        { "id": "aantal_niet_bewoonde_woningen", "label": "Niet-bewoonde woningen" },
-        { "id": "aantal_personen_met_uitkering_onder_aowlft", "label": "Uitkeringsontvangers (onder AOW)" },
-        { "id": "percentage_geb_nederland_herkomst_nederland", "label": "% Herkomst Nederland" },
-        { "id": "percentage_geb_nederland_herkomst_overig_europa", "label": "% Herkomst Europa (NL-geboren)" },
-        { "id": "percentage_geb_nederland_herkomst_buiten_europa", "label": "% Herkomst buiten Europa (NL-geboren)" },
-        { "id": "percentage_geb_buiten_nederland_herkomst_europa", "label": "% Herkomst Europa (buitenlands geboren)" },
-        { "id": "percentage_geb_buiten_nederland_herkmst_buiten_europa", "label": "% Herkomst buiten Europa (buitenlands geboren)" }
+        { "id": "aantal_inwoners",                                    "label": "Inwoners totaal" },
+        { "id": "aantal_mannen",                                      "label": "Mannen" },
+        { "id": "aantal_vrouwen",                                     "label": "Vrouwen" },
+        { "id": "aantal_inwoners_0_tot_15_jaar",                      "label": "Inwoners 0–15 jaar" },
+        { "id": "aantal_inwoners_15_tot_25_jaar",                     "label": "Inwoners 15–25 jaar" },
+        { "id": "aantal_inwoners_25_tot_45_jaar",                     "label": "Inwoners 25–45 jaar" },
+        { "id": "aantal_inwoners_45_tot_65_jaar",                     "label": "Inwoners 45–65 jaar" },
+        { "id": "aantal_inwoners_65_jaar_en_ouder",                   "label": "Inwoners 65+" },
+        { "id": "aantal_part_huishoudens",                            "label": "Particuliere huishoudens" },
+        { "id": "aantal_eenpersoonshuishoudens",                      "label": "Eenpersoonshuishoudens" },
+        { "id": "aantal_meerpersoonshuishoudens_zonder_kind",         "label": "Meerpersoonshuishoudens z. kind" },
+        { "id": "aantal_eenouderhuishoudens",                         "label": "Eenouderhuishoudens" },
+        { "id": "aantal_tweeouderhuishoudens",                        "label": "Tweeouderhuishoudens" },
+        { "id": "gemiddelde_huishoudensgrootte",                      "label": "Gem. huishoudensgrootte" },
+        { "id": "aantal_woningen",                                    "label": "Woningen totaal" },
+        { "id": "aantal_huurwoningen_in_bezit_woningcorporaties",     "label": "Sociale huurwoningen" },
+        { "id": "percentage_huurwoningen",                            "label": "% Sociale huurwoningen" },
+        { "id": "aantal_niet_bewoonde_woningen",                      "label": "Niet-bewoonde woningen" },
+        { "id": "aantal_personen_met_uitkering_onder_aowlft",         "label": "Uitkeringsontvangers (< AOW)" }
       ],
       "default": "aantal_inwoners"
     }
@@ -677,9 +679,63 @@
 },
 
 "cbs-census-gem": {
-  "name": "CBS Kerncijfers Buurten 2024 (Gemeente)",
-  "description": "CBS kerncijfers buurten geaggregeerd naar gemeente. Uitkeringen, studenten, bereikbaarheid, woningwaarde, herkomst.",
+  "name": "CBS Kerncijfers Buurten (Gemeente)",
+  "description": "CBS kerncijfers buurten geaggregeerd naar gemeente. Jaren: 2015, 2017, 2022, 2023, 2024, 2025. Herkomst-% beschikbaar voor 2024 en 2025 (geboorteland/herkomst indeling). Eerdere jaren gebruiken andere classificatie (Westers/NietWesters) en zijn uitgesloten.",
   "scales": { "gem": "parquet/cbs-census-gem.parquet" },
+  "needsGroupBy": false,
+  "fields": {
+    "year": {
+      "type": "single",
+      "label": "Jaar",
+      "values": [
+        { "id": 2015, "label": "2015" },
+        { "id": 2017, "label": "2017" },
+        { "id": 2022, "label": "2022" },
+        { "id": 2023, "label": "2023" },
+        { "id": 2024, "label": "2024" },
+        { "id": 2025, "label": "2025" }
+      ],
+      "default": 2024
+    },
+    "variable": {
+      "type": "single",
+      "label": "Variabele",
+      "values": [
+        { "id": "aantal_personen_met_een_alg_bijstandsuitkering_tot", "label": "Bijstandsontvangers" },
+        { "id": "aantal_personen_met_een_ao_uitkering_totaal",        "label": "AO-uitkeringsontvangers" },
+        { "id": "aantal_personen_met_een_ww_uitkering_totaal",        "label": "WW-uitkeringsontvangers" },
+        { "id": "aantal_personen_met_een_aow_uitkering_totaal",       "label": "AOW-ontvangers" },
+        { "id": "aantal_leerlingen_primair_onderwijs",                "label": "Leerlingen primair onderwijs" },
+        { "id": "aantal_leerlingen_voortgezet_onderwijs",             "label": "Leerlingen voortgezet onderwijs" },
+        { "id": "aantal_studenten_mbo",                               "label": "Studenten MBO" },
+        { "id": "aantal_studenten_hbo",                               "label": "Studenten HBO" },
+        { "id": "aantal_studenten_wo",                                "label": "Studenten WO" },
+        { "id": "personenautos_totaal",                               "label": "Personenauto's" },
+        { "id": "oppervlakte_land_in_ha",                             "label": "Oppervlakte land (ha)" },
+        { "id": "stedelijkheid_gem",                                  "label": "Stedelijkheid (gewogen gem.)" },
+        { "id": "omgevingsadressendichtheid",                         "label": "Omgevingsadressendichtheid" },
+        { "id": "gemiddelde_woningwaarde",                            "label": "Gem. woningwaarde" },
+        { "id": "percentage_met_herkomstland_nederland",              "label": "% Herkomst Nederland (2024+)" },
+        { "id": "percentage_met_herkomstland_uit_europa_excl_nl",     "label": "% Herkomst Europa excl. NL (2024+)" },
+        { "id": "percentage_met_herkomstland_buiten_europa",          "label": "% Herkomst buiten Europa (2024+)" },
+        { "id": "perc_geb_in_nl_met_herkomstland_in_europa_ex_nl",    "label": "% Europa-herkomst, NL-geb. (2024+)" },
+        { "id": "perc_geb_in_nl_met_herkomstland_buiten_europa",      "label": "% Buiten-Europa-herkomst, NL-geb. (2024+)" },
+        { "id": "perc_geb_buiten_nl_met_herkomstlnd_in_europa_ex_nl", "label": "% Europa-herkomst, buitenl.-geb. (2024+)" },
+        { "id": "perc_geb_buiten_nl_met_herkomstlnd_buiten_europa",   "label": "% Buiten-Europa-herkomst, buitenl.-geb. (2024+)" }
+      ],
+      "default": "aantal_personen_met_een_alg_bijstandsuitkering_tot"
+    }
+  },
+  "countCol": "aantal_personen_met_een_alg_bijstandsuitkering_tot",
+  "weightCol": "aantal_inwoners",
+  "defaultClassification": { "method": "jenks", "n": 5, "palette": "YlOrRd" }
+},
+
+"cbs-census-gem-grid": {
+  "name": "CBS Vierkantstatistieken (Gemeente)",
+  "description": "CBS 100m grid geaggregeerd naar gemeente. Jaar: 2024. Bevat huishoudsamenstelling, geslacht, leeftijd en woningvariabelen niet beschikbaar in KWB kerncijfers op gemeenteniveau. Herkomst-% niet beschikbaar vanwege CBS-geheimhouding op gridniveau.",
+  "scales": { "gem": "parquet/cbs-census-gem-grid.parquet" },
+  "needsGroupBy": false,
   "fields": {
     "year": {
       "type": "single",
@@ -691,26 +747,90 @@
       "type": "single",
       "label": "Variabele",
       "values": [
-        { "id": "aantal_personen_met_een_alg_bijstandsuitkering_tot", "label": "Bijstandsontvangers" },
-        { "id": "aantal_personen_met_een_ao_uitkering_totaal", "label": "AO-uitkeringsontvangers" },
-        { "id": "aantal_personen_met_een_ww_uitkering_totaal", "label": "WW-uitkeringsontvangers" },
-        { "id": "aantal_personen_met_een_aow_uitkering_totaal", "label": "AOW-ontvangers" },
-        { "id": "aantal_studenten_mbo", "label": "Studenten MBO" },
-        { "id": "aantal_studenten_hbo", "label": "Studenten HBO" },
-        { "id": "aantal_studenten_wo", "label": "Studenten WO" },
-        { "id": "aantal_leerlingen_primair_onderwijs", "label": "Leerlingen primair onderwijs" },
-        { "id": "aantal_leerlingen_voortgezet_onderwijs", "label": "Leerlingen voortgezet onderwijs" },
-        { "id": "personenautos_totaal", "label": "Personenauto's" },
-        { "id": "oppervlakte_land_in_ha", "label": "Oppervlakte land (ha)" },
-        { "id": "gemiddelde_woningwaarde", "label": "Gemiddelde woningwaarde" },
-        { "id": "percentage_met_herkomstland_nederland", "label": "% Herkomst Nederland" },
-        { "id": "percentage_met_herkomstland_uit_europa_excl_nl", "label": "% Herkomst Europa excl. NL" },
-        { "id": "percentage_met_herkomstland_buiten_europa", "label": "% Herkomst buiten Europa" }
+        { "id": "aantal_inwoners",                                    "label": "Inwoners totaal" },
+        { "id": "aantal_mannen",                                      "label": "Mannen" },
+        { "id": "aantal_vrouwen",                                     "label": "Vrouwen" },
+        { "id": "aantal_inwoners_0_tot_15_jaar",                      "label": "Inwoners 0–15 jaar" },
+        { "id": "aantal_inwoners_15_tot_25_jaar",                     "label": "Inwoners 15–25 jaar" },
+        { "id": "aantal_inwoners_25_tot_45_jaar",                     "label": "Inwoners 25–45 jaar" },
+        { "id": "aantal_inwoners_45_tot_65_jaar",                     "label": "Inwoners 45–65 jaar" },
+        { "id": "aantal_inwoners_65_jaar_en_ouder",                   "label": "Inwoners 65+" },
+        { "id": "aantal_part_huishoudens",                            "label": "Particuliere huishoudens" },
+        { "id": "aantal_eenpersoonshuishoudens",                      "label": "Eenpersoonshuishoudens" },
+        { "id": "aantal_meerpersoonshuishoudens_zonder_kind",         "label": "Meerpersoonshuishoudens z. kind" },
+        { "id": "aantal_eenouderhuishoudens",                         "label": "Eenouderhuishoudens" },
+        { "id": "aantal_tweeouderhuishoudens",                        "label": "Tweeouderhuishoudens" },
+        { "id": "gemiddelde_huishoudensgrootte",                      "label": "Gem. huishoudensgrootte" },
+        { "id": "aantal_woningen",                                    "label": "Woningen totaal" },
+        { "id": "aantal_huurwoningen_in_bezit_woningcorporaties",     "label": "Sociale huurwoningen" },
+        { "id": "percentage_huurwoningen",                            "label": "% Sociale huurwoningen" },
+        { "id": "aantal_niet_bewoonde_woningen",                      "label": "Niet-bewoonde woningen" },
+        { "id": "aantal_personen_met_uitkering_onder_aowlft",         "label": "Uitkeringsontvangers (< AOW)" }
       ],
-      "default": "aantal_personen_met_een_alg_bijstandsuitkering_tot"
+      "default": "aantal_inwoners"
     }
   },
-  "countCol": "aantal_personen_met_een_alg_bijstandsuitkering_tot",
+  "countCol": "aantal_inwoners",
+  "weightCol": "aantal_inwoners",
+  "defaultClassification": { "method": "jenks", "n": 5, "palette": "YlOrRd" }
+},
+
+"cbs-census-buurt": {
+  "name": "CBS Kerncijfers Buurten (Buurt)",
+  "description": "CBS kerncijfers op buurtniveau. Jaren: 2015, 2017, 2022, 2023, 2024, 2025. Herkomst-% beschikbaar voor 2024 en 2025. Afstandsvariabelen tot voorzieningen beschikbaar voor alle jaren (treinstation/ziekenhuis/VO alleen 2015/2017).",
+  "scales": { "buurt": "parquet/cbs-census-buurt.parquet" },
+  "needsGroupBy": false,
+  "fields": {
+    "year": {
+      "type": "single",
+      "label": "Jaar",
+      "values": [
+        { "id": 2015, "label": "2015" },
+        { "id": 2017, "label": "2017" },
+        { "id": 2022, "label": "2022" },
+        { "id": 2023, "label": "2023" },
+        { "id": 2024, "label": "2024" },
+        { "id": 2025, "label": "2025" }
+      ],
+      "default": 2024
+    },
+    "variable": {
+      "type": "single",
+      "label": "Variabele",
+      "values": [
+        { "id": "aantal_inwoners",                                        "label": "Inwoners totaal" },
+        { "id": "aantal_personen_met_een_alg_bijstandsuitkering_tot",     "label": "Bijstandsontvangers" },
+        { "id": "aantal_personen_met_een_ao_uitkering_totaal",            "label": "AO-uitkeringsontvangers" },
+        { "id": "aantal_personen_met_een_ww_uitkering_totaal",            "label": "WW-uitkeringsontvangers" },
+        { "id": "aantal_personen_met_een_aow_uitkering_totaal",           "label": "AOW-ontvangers" },
+        { "id": "aantal_leerlingen_primair_onderwijs",                    "label": "Leerlingen primair onderwijs" },
+        { "id": "aantal_leerlingen_voortgezet_onderwijs",                 "label": "Leerlingen voortgezet onderwijs" },
+        { "id": "aantal_studenten_mbo",                                   "label": "Studenten MBO" },
+        { "id": "aantal_studenten_hbo",                                   "label": "Studenten HBO" },
+        { "id": "aantal_studenten_wo",                                    "label": "Studenten WO" },
+        { "id": "personenautos_totaal",                                   "label": "Personenauto's" },
+        { "id": "oppervlakte_land_in_ha",                                 "label": "Oppervlakte land (ha)" },
+        { "id": "stedelijkheid_buurt",                                    "label": "Stedelijkheid (1=zeer stedelijk)" },
+        { "id": "omgevingsadressendichtheid",                             "label": "Omgevingsadressendichtheid (adr/km²)" },
+        { "id": "gemiddelde_woningwaarde",                                "label": "Gem. woningwaarde" },
+        { "id": "percentage_met_herkomstland_nederland",                  "label": "% Herkomst Nederland (2024+)" },
+        { "id": "percentage_met_herkomstland_uit_europa_excl_nl",         "label": "% Herkomst Europa excl. NL (2024+)" },
+        { "id": "percentage_met_herkomstland_buiten_europa",              "label": "% Herkomst buiten Europa (2024+)" },
+        { "id": "perc_geb_in_nl_met_herkomstland_in_europa_ex_nl",        "label": "% Europa-herkomst, NL-geb. (2024+)" },
+        { "id": "perc_geb_in_nl_met_herkomstland_buiten_europa",          "label": "% Buiten-Europa-herkomst, NL-geb. (2024+)" },
+        { "id": "perc_geb_buiten_nl_met_herkomstlnd_in_europa_ex_nl",     "label": "% Europa-herkomst, buitenl.-geb. (2024+)" },
+        { "id": "perc_geb_buiten_nl_met_herkomstlnd_buiten_europa",       "label": "% Buiten-Europa-herkomst, buitenl.-geb. (2024+)" },
+        { "id": "afstand_huisartsenpraktijk",                             "label": "Afstand huisartsenpraktijk (km, 2017+)" },
+        { "id": "afstand_grote_supermarkt",                               "label": "Afstand grote supermarkt (km, 2017+)" },
+        { "id": "afstand_treinstation",                                   "label": "Afstand treinstation (km, 2017)" },
+        { "id": "afstand_basisonderwijs",                                 "label": "Afstand school (km, 2017+)" },
+        { "id": "afstand_ziekenhuis",                                     "label": "Afstand ziekenhuis (km, 2017)" },
+        { "id": "afstand_voortgezet_onderwijs",                           "label": "Afstand voortgezet onderwijs (km, 2017)" }
+      ],
+      "default": "aantal_inwoners"
+    }
+  },
+  "countCol": "aantal_inwoners",
   "weightCol": "aantal_inwoners",
   "defaultClassification": { "method": "jenks", "n": 5, "palette": "YlOrRd" }
 }
@@ -1285,8 +1405,23 @@
       "geojson": "geo/gemeenten.geojson",
       "topojson": "geo/gemeenten.topo.json",
       "centroids": "geo/gem-centroids.json",
+<<<<<<< HEAD
       "centroidsRd": "geo/gem-centroids-rd.json",
       "idProp": "area_code"
     }
   }
 }
+=======
+      "idProp": "area_code",
+      "centroidsRd": "geo/gem-centroids-rd.json"
+    },
+    "buurt": {
+  "geojson": "geo/buurt.geojson",
+  "topojson": "geo/buurt.topo.json",
+  "centroids": "geo/buurt-centroids.json",
+  "centroidsRd": "geo/buurt-centroids-rd.json",
+  "idProp": "area_code"
+}
+}
+}
+>>>>>>> fcf7cc0 (feat: buurt scale, multi-year CBS census, gemeente grid aggregation)

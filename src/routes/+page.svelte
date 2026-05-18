@@ -174,7 +174,7 @@
 		if (displayed.error) return displayed.error;
 		if (manifestState.error) return manifestState.error;
 		if (displayed.loading || manifestState.loading) return 'querying…';
-		const unit = selection.scale === 'pc4' ? 'PC4s' : 'gemeenten';
+		const unit = selection.scale === 'pc4' ? 'PC4s' : selection.scale === 'gem' ? 'gemeenten' : 'buurten';
 		const active = displayed.activeLayer;
 		const prefix = active ? `${active.name}: ` : '';
 		return `${prefix}${displayed.data.size.toLocaleString()} ${unit}`;
