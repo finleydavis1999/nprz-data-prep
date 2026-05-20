@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
   "version": "2026-05-20T07:42:27Z",
-=======
-  "version": "2026-05-18T17:00:00Z",
->>>>>>> fcf7cc0 (feat: buurt scale, multi-year CBS census, gemeente grid aggregation)
   "datasets": {
     "demographics": {
       "name": "Persoonsgegevens 2018",
@@ -1404,24 +1400,15 @@
     "gem": {
       "geojson": "geo/gemeenten.geojson",
       "topojson": "geo/gemeenten.topo.json",
-      "centroids": "geo/gem-centroids.json",
-<<<<<<< HEAD
       "centroidsRd": "geo/gem-centroids-rd.json",
+      "idProp": "area_code"
+    },
+    "buurt": {
+      "geojson": "geo/buurt.geojson",
+      "topojson": "geo/buurt.topo.json",
+      "centroids": "geo/buurt-centroids.json",
+      "centroidsRd": "geo/buurt-centroids-rd.json",
       "idProp": "area_code"
     }
   }
 }
-=======
-      "idProp": "area_code",
-      "centroidsRd": "geo/gem-centroids-rd.json"
-    },
-    "buurt": {
-  "geojson": "geo/buurt.geojson",
-  "topojson": "geo/buurt.topo.json",
-  "centroids": "geo/buurt-centroids.json",
-  "centroidsRd": "geo/buurt-centroids-rd.json",
-  "idProp": "area_code"
-}
-}
-}
->>>>>>> fcf7cc0 (feat: buurt scale, multi-year CBS census, gemeente grid aggregation)

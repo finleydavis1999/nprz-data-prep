@@ -5,12 +5,6 @@ import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
-	server: {
-		fs: { strict: false },
-		headers: {
-			'Cache-Control': 'no-store'
-		}
-	},
 	test: {
 		expect: { requireAssertions: true },
 		projects: [
@@ -27,6 +21,7 @@ export default defineConfig({
 					exclude: ['src/lib/server/**']
 				}
 			},
+
 			{
 				extends: './vite.config.js',
 				test: {
