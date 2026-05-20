@@ -1,11 +1,11 @@
 <script>
-    import { selection } from '$lib/state/selection.svelte.js';
+	import { selection } from '$lib/state/selection.svelte.js';
 
-    const scales = [
-        { id: 'pc4', label: 'PC4' },
-        { id: 'gem', label: 'Gemeente' },
-        { id: 'buurt', label: 'Buurt' }
-    ];
+	const scales = [
+		{ id: 'pc4', label: 'PC4' },
+		{ id: 'gem', label: 'Gemeente' },
+		{ id: 'buurt', label: 'Buurt' }
+	];
 </script>
 
 <div class="seg">

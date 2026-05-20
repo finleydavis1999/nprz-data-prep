@@ -14,7 +14,7 @@
 	);
 
 	const activeVarLabel = $derived(
-		options.find(o => String(o.id) === String(activeVarId))?.label ?? ''
+		options.find((o) => String(o.id) === String(activeVarId))?.label ?? ''
 	);
 
 	// When switching to a dataset that has a variable field, set the default
@@ -24,7 +24,7 @@
 		void ds;
 		if (!variableField || options.length === 0) return;
 		const cur = state.filters?.variable?.[0];
-		const validIds = options.map(o => String(o.id));
+		const validIds = options.map((o) => String(o.id));
 		if (!cur || !validIds.includes(String(cur))) {
 			// Use $state.snapshot to avoid mutating during derivation
 			const defaultId = variableField.default ?? options[0]?.id;
