@@ -27,7 +27,25 @@ async function doInit(manifestVersion) {
 
 // Get a FileSystemFileHandle for `relativePath`, fetching from `srcUrl` on miss.
 // `relativePath` may contain `/` separators — intermediate dirs are created.
+//
+// Concurrent callers for the same `relativePath` share a single fetch+write
+// cycle. Required because prefetch and the user-query path (`ensureRegistered`)
+// can both reach the same file on a cold OPFS: two parallel `createWritable()`
+// streams would leave a writable open when DuckDB-WASM later tries
+// `createSyncAccessHandle()` on the registered handle, which throws
+// `NoModificationAllowedError` (surfaces as `prepareFileHandleAsync Immutable`).
+const inflight = new Map();
+
 export async function getOrFetch(versionRoot, relativePath, srcUrl) {
+	const existing = inflight.get(relativePath);
+	if (existing) return existing;
+	const p = doGetOrFetch(versionRoot, relativePath, srcUrl);
+	inflight.set(relativePath, p);
+	p.finally(() => inflight.delete(relativePath));
+	return p;
+}
+
+async function doGetOrFetch(versionRoot, relativePath, srcUrl) {
 	const parts = relativePath.split('/');
 	const filename = parts.pop();
 	let dir = versionRoot;
