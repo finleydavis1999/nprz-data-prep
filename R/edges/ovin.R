@@ -1,12 +1,13 @@
-# OViN: CBS Onderzoek Verplaatsingen in Nederland 2004-2022, OD edges.
-# Source: raw-data/edges-ovin-2022.sqlite, table ovin20042022 (~2.6M trip rows).
+# OViN/ODiN: CBS Onderzoek Verplaatsingen in Nederland (2004-2017, OViN) +
+# Onderweg in Nederland (2018-2024, ODiN), OD edges.
+# Source: raw-data/edges-ovin-2024.sqlite, table ovin20042024 (~3.0M trip rows).
 # Output:
 #   static/data/parquet/ovin-edges-gem.parquet  (uses c_vgemf / c_agemf)
 #   static/data/parquet/ovin-edges-pc4.parquet  (uses c_vpcf  / c_apcf)
 source("R/lib/parquet.R")
 
 build_ovin <- function() {
-  con <- duckdb_with_sqlite("raw-data/edges-ovin-2022.sqlite")
+  con <- duckdb_with_sqlite("raw-data/edges-ovin-2024.sqlite")
   on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
 
   write_parquet_from_query(con, "
@@ -21,7 +22,7 @@ build_ovin <- function() {
       CAST(c_maatsch AS INTEGER) AS maatsch,
       SUM(factorv)::DOUBLE AS count,
       SUM(factorv)::DOUBLE AS weight
-    FROM src.ovin20042022
+    FROM src.ovin20042024
     WHERE c_vgemf IS NOT NULL AND c_agemf IS NOT NULL
     GROUP BY o_code, d_code, year, motief, modus, opl, hhtype, maatsch
     ORDER BY year, o_code, d_code
@@ -39,15 +40,15 @@ build_ovin <- function() {
       CAST(c_maatsch AS INTEGER) AS maatsch,
       SUM(factorv)::DOUBLE AS count,
       SUM(factorv)::DOUBLE AS weight
-    FROM src.ovin20042022
+    FROM src.ovin20042024
     WHERE c_vpcf IS NOT NULL AND c_apcf IS NOT NULL
     GROUP BY o_code, d_code, year, motief, modus, opl, hhtype, maatsch
     ORDER BY year, o_code, d_code
   ", "static/data/parquet/ovin-edges-pc4.parquet")
 
   list(
-    name        = "Verplaatsingen 2004-2022 (OViN)",
-    description = "Onderzoek Verplaatsingen in Nederland 2004-2022. Per-trip records aggregated to herkomst-bestemming gemeenten. Tellingen = som van factorv (gewogen ritten over de gekozen periode).",
+    name        = "Verplaatsingen 2004-2024 (OViN/ODiN)",
+    description = "Onderzoek Verplaatsingen in Nederland (OViN/ODiN) 2004-2024. Per-trip records aggregated to herkomst-bestemming gemeenten. Tellingen = som van factorv (gewogen ritten over de gekozen periode).",
     scales = list(
       gem = "parquet/ovin-edges-gem.parquet",
       pc4 = "parquet/ovin-edges-pc4.parquet"
@@ -57,7 +58,7 @@ build_ovin <- function() {
         # Range: user picks an inclusive [min, max] interval; per-trip counts
         # are aggregated across years and normalised per yearAggregation.
         type = "range", label = "Periode",
-        min = 2004L, max = 2022L,
+        min = 2004L, max = 2024L,
         defaultMin = 2018L, defaultMax = 2018L
       ),
       motief = list(

@@ -1,5 +1,5 @@
 {
-  "version": "2026-05-10T21:15:45Z",
+  "version": "2026-05-20T07:42:27Z",
   "datasets": {
     "demographics": {
       "name": "Persoonsgegevens 2018",
@@ -633,8 +633,8 @@
   },
   "flows": {
     "ovin": {
-      "name": "Verplaatsingen 2004-2022 (OViN)",
-      "description": "Onderzoek Verplaatsingen in Nederland 2004-2022. Per-trip records aggregated to herkomst-bestemming gemeenten. Tellingen = som van factorv (gewogen ritten over de gekozen periode).",
+      "name": "Verplaatsingen 2004-2024 (OViN/ODiN)",
+      "description": "Onderzoek Verplaatsingen in Nederland (OViN/ODiN) 2004-2024. Per-trip records aggregated to herkomst-bestemming gemeenten. Tellingen = som van factorv (gewogen ritten over de gekozen periode).",
       "scales": {
         "gem": "parquet/ovin-edges-gem.parquet",
         "pc4": "parquet/ovin-edges-pc4.parquet"
@@ -644,7 +644,7 @@
           "type": "range",
           "label": "Periode",
           "min": 2004,
-          "max": 2022,
+          "max": 2024,
           "defaultMin": 2018,
           "defaultMax": 2018
         },
@@ -1194,15 +1194,15 @@
       "geojson": "geo/pc4.geojson",
       "topojson": "geo/pc4.topo.json",
       "centroids": "geo/pc4-centroids.json",
-      "idProp": "area_code",
-      "centroidsRd": "geo/pc4-centroids-rd.json"
+      "centroidsRd": "geo/pc4-centroids-rd.json",
+      "idProp": "area_code"
     },
     "gem": {
       "geojson": "geo/gemeenten.geojson",
       "topojson": "geo/gemeenten.topo.json",
       "centroids": "geo/gem-centroids.json",
-      "idProp": "area_code",
-      "centroidsRd": "geo/gem-centroids-rd.json"
+      "centroidsRd": "geo/gem-centroids-rd.json",
+      "idProp": "area_code"
     }
   }
 }
